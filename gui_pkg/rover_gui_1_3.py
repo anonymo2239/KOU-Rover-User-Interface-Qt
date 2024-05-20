@@ -18,7 +18,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from std_msgs.msg import String
 
-class Ui_rover_gui:
+class Ui_rover_gui(object):
 
     ###  Degiskenler
     start_const = 0
@@ -935,43 +935,25 @@ class Ui_rover_gui:
 
 class MainWindow(QtWidgets.QMainWindow, Ui_rover_gui):
     def __init__(self):
-        super(MainWindow, self).__init__()
+        super().__init__()
         self.setupUi(self)
+        rclpy.init()
+        self.node = rclpy.create_node("interface")
+        self.subscriber_ = self.node.create_subscription(
+            String, "robot_news", self.callback_robot_news, 10)
+        self.lineEdit.setText(str(0.0))
+        self.lineEdit_2.setText(str(0.0))
+        self.lineEdit_3.setText(str(0.0))
+        self.lineEdit_4.setText(str(0.0))
 
-class QRCodeSubscriber(Node):
-    def __init__(self, ui):
-        super().__init__('qr_code_subscriber')
-        self.ui = ui
-        self.subscription = self.create_subscription(
-            String,
-            'qr_code',
-            self.qr_code_callback,
-            10)
-        self.subscription  # prevent unused variable warning
+    def callback_robot_news(self, msg):
+        self.node.get_logger().info(msg.data)
 
-    def qr_code_callback(self, msg):
-        print('Received QR code:', msg.data)
-        # Update the UI directly or via signal-slot if needed
-        self.ui.update_qr_code_display(msg.data)
-
-
+import sys
 app = QtWidgets.QApplication(sys.argv)
-rclpy.init(args=None)  # Initialize ROS 2 only once here
-
-main_window = MainWindow()
-qr_subscriber = QRCodeSubscriber(main_window)
-main_window.show()
-
-# Use a separate thread for ROS spinning to keep the PyQt5 GUI responsive
-def ros_spin():
-    rclpy.spin(qr_subscriber)
-
-from threading import Thread
-spin_thread = Thread(target=ros_spin)
-spin_thread.start()
-
-exit_code = app.exec_()
-rclpy.shutdown()  # Shutdown ROS 2
-spin_thread.join()
-sys.exit(exit_code)
+rover_gui = QtWidgets.QMainWindow()
+ui = Ui_rover_gui()
+ui.setupUi(rover_gui)
+rover_gui.show()
+sys.exit(app.exec())
 
