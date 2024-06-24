@@ -25,7 +25,14 @@ setup(
             "rover_gui_1_2 = gui_pkg.rover_gui_1_2:main",
             "rover_gui_1_3 = gui_pkg.rover_gui_1_3:main",
             "websocketdeneme = gui_pkg.websocketdeneme:main",
-            "qrdeneme = gui_pkg.qrdeneme:main"
+            "qrdeneme = gui_pkg.qrdeneme:main",
+            "guiros = gui_pkg.main_guiros:main",
+            "main_guiros = gui_pkg.main_guiros:main",
+            "continuous_deneme = gui_pkg.continuous_deneme:main",
+            "discrete_deneme = gui_pkg.discrete_deneme:main",
+
+            "main_rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",
+            "rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",
         ],
     },
 )
