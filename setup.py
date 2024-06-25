@@ -30,6 +30,9 @@ setup(
             "main_guiros = gui_pkg.main_guiros:main",
             "continuous_deneme = gui_pkg.continuous_deneme:main",
             "discrete_deneme = gui_pkg.discrete_deneme:main",
+            "temperature_publisher = gui_pkg.ros2_nodes.temperature_publisher:main",
+            "current_publisher = gui_pkg.ros2_nodes.current_publisher:main",
+            "charge_publisher = gui_pkg.ros2_nodes.charge_publisher:main",
 
             "main_rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",
             "rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",

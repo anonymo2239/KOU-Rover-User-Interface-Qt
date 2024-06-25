@@ -10,7 +10,7 @@ import rclpy
 from std_msgs.msg import String
 from PyQt6.QtCore import pyqtSignal
 from std_msgs.msg import String
-from example_interfaces.msg import Int64
+from example_interfaces.msg import Int32
 
 # Qt
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -22,7 +22,51 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from gui_pkg.rovergui_2_0 import Ui_rover_gui
 
 class MainWindow(QMainWindow, Ui_rover_gui, Node):
+
     qr_received = pyqtSignal(str)  # QR kod string'ini göndermek için sinyal
+    start_const = 0
+    approval = False
+    i = 0
+
+    # QRCODE AND ROS
+    def connect_ros(self):
+        self.qr_subscriber = self.create_subscription(
+            String, 'qr_code', self.print_QR, 10)
+        
+        self.temperature_subscriber = self.create_subscription(
+            Int32, 'temperature_info', self.print_temperature, 10)
+        
+        self.current_subscriber = self.create_subscription(
+            Int32, 'current_info', self.print_current, 10)
+        
+        self.charge_subscriber = self.create_subscription(
+            Int32, 'charge_info', self.print_charge, 10)
+
+    def print_QR(self, msg):
+        self.qr_received.emit(msg.data)  # QR verisi ile sinyali tetikle
+
+    def update_text_edit(self, qr_data):
+        _translate = QtCore.QCoreApplication.translate
+        self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
+
+    def print_temperature(self, msg):
+        if self.approval == True:
+            self.ui.lineEdit_temperature.setText(str(msg.data))
+        else:
+            pass
+
+    def print_current(self, msg):
+        if self.approval == True:
+            self.ui.lineEdit_current.setText(str(msg.data))
+        else:
+            pass
+
+    def print_charge(self, msg):
+        if self.approval == True:
+            self.ui.lineEdit_charge.setText(str(msg.data))
+        else:
+            pass
+
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
@@ -40,10 +84,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.startButton.clicked.connect(self.start_vehicle)
         self.ui.finishButton.clicked.connect(self.get_through_vehicle)
         self.ui.emergencyButton.clicked.connect(self.emergency_sit)
+        self.ui.pushButton.clicked.connect(self.approval_sit)
 
-        self.start_const = 0
-        self.approval = True
-        self.i = 0
         self.centralwidget = QtWidgets.QWidget(self)
         self.centralwidget.setObjectName("centralwidget")
         self.timer = QTimer(self.centralwidget)
@@ -88,6 +130,10 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.layout.addWidget(self.label)
         self.dialog.setLayout(self.layout)
         self.dialog.exec()
+
+    def approval_sit(self):
+        self.approval = True
+        self.comboBox_scen.setEnabled(False)
 
     def start_vehicle(self):
         if self.approval:
@@ -166,19 +212,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         hours, remainder = divmod(self.elapsed_time, 3600)
         minutes, seconds = divmod(remainder, 60)
         self.ui.lineEdit_time.setText(f"{hours:02}:{minutes:02}:{seconds:02}")
-
-    # QRCODE
-    def connect_ros(self):
-        self.qr_subscriber = self.create_subscription(
-            String, 'qr_code', self.print_QR, 10)
-        self.get_logger().info("QR Scanner Node has been started.")
-
-    def print_QR(self, msg):
-        self.qr_received.emit(msg.data)  # QR verisi ile sinyali tetikle
-
-    def update_text_edit(self, qr_data):
-        _translate = QtCore.QCoreApplication.translate
-        self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
 
 
 def main():

@@ -8,7 +8,7 @@ import rclpy
 from std_msgs.msg import String
 from example_interfaces.msg import Int64
 
-from gui_pkg.guiros import Ui_MainWindow
+from gui_pkg.guiros import Ui_MainWindow 
 
 class MainWindow(QMainWindow, Ui_MainWindow, Node):
     qr_received = pyqtSignal(str)  # QR kod string'ini göndermek için sinyal
