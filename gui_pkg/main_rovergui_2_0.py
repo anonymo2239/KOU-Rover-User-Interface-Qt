@@ -8,7 +8,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 from rclpy.node import Node
 import rclpy
 from std_msgs.msg import String
-from rclpy.qos import QoSProfile
+from PyQt6.QtCore import pyqtSignal
+from std_msgs.msg import String
+from example_interfaces.msg import Int64
 
 # Qt
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -20,6 +22,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from gui_pkg.rovergui_2_0 import Ui_rover_gui
 
 class MainWindow(QMainWindow, Ui_rover_gui, Node):
+    qr_received = pyqtSignal(str)  # QR kod string'ini göndermek için sinyal
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
@@ -27,15 +30,19 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui = Ui_rover_gui()
         self.ui.setupUi(self)
 
+        self.get_logger().info("ROS initialized.")
+        self.connect_ros()
+        self.qr_received.connect(self.update_text_edit)
+
         self.ui.pushButton_2.clicked.connect(self.showExitDialog)
         self.ui.pushButton_exit_fullscreen.clicked.connect(self.setFullScreen)
         self.ui.routeInfoButton.clicked.connect(self.createRouteInfoDialog)
         self.ui.startButton.clicked.connect(self.start_vehicle)
-        # self.ui.finishButton.clicked.connect(self.get_through_vehicle)
+        self.ui.finishButton.clicked.connect(self.get_through_vehicle)
         self.ui.emergencyButton.clicked.connect(self.emergency_sit)
 
         self.start_const = 0
-        self.approval = False
+        self.approval = True
         self.i = 0
         self.centralwidget = QtWidgets.QWidget(self)
         self.centralwidget.setObjectName("centralwidget")
@@ -61,10 +68,10 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     def setFullScreen(self):
         if self.i % 2 == 0:
             self.showNormal()
-            self.pushButton_exit_fullscreen.setText("Tam ekran")
+            self.ui.pushButton_exit_fullscreen.setText("Tam ekran")
         else:
             self.showFullScreen()
-            self.pushButton_exit_fullscreen.setText("Tam ekrandan çık")
+            self.ui.pushButton_exit_fullscreen.setText("Tam ekrandan çık")
         self.i += 1
 
     def createRouteInfoDialog(self):
@@ -87,14 +94,14 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             if not self.timer.isActive():
                 self.ui.startButton.setText("Durdur")
                 icon1 = QtGui.QIcon()
-                icon1.addPixmap(QtGui.QPixmap("/images/power-off.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+                icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-off.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.ui.startButton.setIcon(icon1)
                 self.timer.start(1000)
                 self.ui.finishButton.setVisible(True)
             else:
                 self.ui.startButton.setText("Devam Et")
                 icon1 = QtGui.QIcon()
-                icon1.addPixmap(QtGui.QPixmap("/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+                icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.ui.startButton.setIcon(icon1)
                 self.timer.stop()
                 self.ui.comboBox_scen.setEnabled(True)
@@ -107,25 +114,34 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.finishButton.setVisible(False)
             self.ui.startButton.setText("Başlat")
             icon1 = QtGui.QIcon()
-            icon1.addPixmap(QtGui.QPixmap("/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+            icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
             self.approval = False
             self.timer.stop()
             self.elapsed_time = 0
             self.ui.lineEdit_time.setText("00:00:00")
         else:
-            self.ui.show_scenario_warning()
+            self.show_scenario_warning()
+
+    def show_scenario_warning(self):
+        msgBox_select_scenario = QMessageBox()
+        msgBox_select_scenario.setIcon(QMessageBox.Icon.Warning)
+        msgBox_select_scenario.setText("Aracı başlatmadan önce lütfen senaryo seçiniz.")
+        msgBox_select_scenario.setWindowTitle("Senaryo seçiniz.")
+        msgBox_select_scenario.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msgBox_select_scenario.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
+        msgBox_select_scenario.exec()
 
     def emergency_sit(self):
-        if self.ui.approval:
+        if self.approval:
             self.ui.startButton.setText("Devam Et")
             self.ui.emergencyButton.setText("Acil Durum İptal")
             icon1 = QtGui.QIcon()
-            icon1.addPixmap(QtGui.QPixmap("/home/alperenarda/Desktop/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+            icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
-            self.ui.timer.stop()
+            self.timer.stop()
             self.ui.centralwidget.setStyleSheet("background-color: #FF6666;")
-            self.ui.approval = False
+            self.approval = False
             
             msgBox_emergency = QMessageBox(self.ui.centralwidget)
             msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
@@ -151,14 +167,33 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         minutes, seconds = divmod(remainder, 60)
         self.ui.lineEdit_time.setText(f"{hours:02}:{minutes:02}:{seconds:02}")
 
+    # QRCODE
+    def connect_ros(self):
+        self.qr_subscriber = self.create_subscription(
+            String, 'qr_code', self.print_QR, 10)
+        self.get_logger().info("QR Scanner Node has been started.")
+
+    def print_QR(self, msg):
+        self.qr_received.emit(msg.data)  # QR verisi ile sinyali tetikle
+
+    def update_text_edit(self, qr_data):
+        _translate = QtCore.QCoreApplication.translate
+        self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
+
+
 def main():
     rclpy.init(args=None)
     app = QApplication(sys.argv)
-    print(current_dir)
-
     win = MainWindow()
     win.show()
+    def run_ros():
+        rclpy.spin(win)
+
+    thread = threading.Thread(target=run_ros)
+    thread.start()
     app.exec()
+    rclpy.shutdown()
+    thread.join()
 
 if __name__ == "__main__":
     main()
