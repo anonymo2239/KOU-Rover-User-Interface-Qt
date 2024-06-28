@@ -28,7 +28,7 @@ def main(args=None):
 selector = selectors.DefaultSelector()
 
 # Change the device path to your specific device
-device = evdev.InputDevice('/dev/input/event24')
+device = evdev.InputDevice('/dev/input/event21')
 
 # Grab the device to prevent it from acting as a keyboard input
 device.grab()

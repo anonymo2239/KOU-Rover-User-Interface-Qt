@@ -25,7 +25,7 @@ setup(
             "rover_gui_1_2 = gui_pkg.rover_gui_1_2:main",
             "rover_gui_1_3 = gui_pkg.rover_gui_1_3:main",
             "websocketdeneme = gui_pkg.websocketdeneme:main",
-            "qrdeneme = gui_pkg.qrdeneme:main",
+            "qrdeneme = gui_pkg.ros2_nodes.qrdeneme:main",
             "guiros = gui_pkg.main_guiros:main",
             "main_guiros = gui_pkg.main_guiros:main",
             "continuous_deneme = gui_pkg.continuous_deneme:main",
@@ -33,6 +33,8 @@ setup(
             "temperature_publisher = gui_pkg.ros2_nodes.temperature_publisher:main",
             "current_publisher = gui_pkg.ros2_nodes.current_publisher:main",
             "charge_publisher = gui_pkg.ros2_nodes.charge_publisher:main",
+            "load_publisher = gui_pkg.ros2_nodes.load_publisher:main",
+            "velocity_publisher = gui_pkg.ros2_nodes.velocity_publisher:main",
 
             "main_rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",
             "rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",
