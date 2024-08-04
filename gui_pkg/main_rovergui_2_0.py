@@ -87,7 +87,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
         # Turtle
         self.settings = termios.tcgetattr(sys.stdin)
-        self.pub = self.create_publisher(Twist, 'cmd_vel', 10)
+        self.pub = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
         self.status = 0
         self.target_linear_vel = 0.0
         self.target_angular_vel = 0.0
@@ -236,19 +236,19 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             String, 'qr_code', self.print_QR, 10)
         
         self.temperature_subscriber = self.create_subscription(
-            Int32, 'temperature_info', self.print_temperature, 10)
+            Int32, 'sicaklik_data', self.print_temperature, 10)
         
         self.current_subscriber = self.create_subscription(
-            Int32, 'current_info', self.print_current, 10)
+            Int32, 'acisal_hiz_data', self.print_current, 10)
         
         self.charge_subscriber = self.create_subscription(
-            Int32, 'charge_info', self.print_charge, 10)
+            Int32, 'aku1_data', self.print_charge, 10)
         
         self.load_subscriber = self.create_subscription(
-            Int32, 'load_info', self.print_load, 10)
+            Int32, 'agirlik_data', self.print_load, 10)
         
         self.velocity_subscriber = self.create_subscription(
-            Int32, 'velocity_info', self.print_velocity, 10)
+            Int32, 'lineer_hiz_data', self.print_velocity, 10)
 
     def print_QR(self, msg):
         self.qr_received.emit(msg.data)  # QR verisi ile sinyali tetikle
