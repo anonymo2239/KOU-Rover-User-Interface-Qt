@@ -9,9 +9,8 @@ from rclpy.node import Node
 import rclpy
 from std_msgs.msg import String
 from PyQt6.QtCore import pyqtSignal
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from example_interfaces.msg import Int32
-from example_interfaces.msg import Int64
 from geometry_msgs.msg import Twist
 import select, termios, tty
 
@@ -21,6 +20,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLa
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtGui import QPixmap
 
 from gui_pkg.rovergui_2_0 import Ui_rover_gui
 
@@ -55,7 +55,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     qr_received = pyqtSignal(str)  # QR kod string'ini göndermek için sinyal
     start_const = 0
     approval = False
-    forward_approval = False
+    emergency = False
     i = 0
 
     def __init__(self, parent=None):
@@ -75,6 +75,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.startButton.clicked.connect(self.start_vehicle)
         self.ui.finishButton.clicked.connect(self.get_through_vehicle)
         self.ui.emergencyButton.clicked.connect(self.emergency_sit)
+        self.ui.emergencyButton_2.clicked.connect(self.emergency_sit)
         self.ui.pushButton.clicked.connect(self.approval_sit)
         
         self.timer = QTimer(self)  # Bu timer diğerlerinin yerine kullanılacak
@@ -105,6 +106,16 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     # //////////////////// THE FUNCTIONS I WROTE ////////////////////
 
+    def reset_info(self):
+        self.timer.stop()
+        self.elapsed_time = 0
+        self.ui.lineEdit_time.setText("00:00:00")
+        self.ui.lineEdit_charge.setText("0")
+        self.ui.lineEdit_current.setText("0")
+        self.ui.lineEdit_load.setText("0")
+        self.ui.lineEdit_temperature.setText("0")
+        self.ui.lineEdit_velocity("0")
+
     def showExitDialog(self):
         self.msgBox = QMessageBox()
         self.msgBox.setIcon(QMessageBox.Icon.Warning)
@@ -118,7 +129,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
         returnValue = self.msgBox.exec()
         if returnValue == QMessageBox.StandardButton.Yes:
-            sys.exit()
+            QApplication.quit()
 
     def setFullScreen(self):
         if self.i % 2 == 0:
@@ -135,11 +146,43 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.dialog.setGeometry(800, 500, 1000, 500)
         self.dialog.setStyleSheet("background-color: lightgray;")
         self.layout = QVBoxLayout()
-        self.label = QLabel("Burada güzergah ile ilgili bilgiler ve resimler yer alacak.")
+
+        scenario_index = self.ui.comboBox_scen.currentIndex()
+        if scenario_index == 0:
+            image_path = current_dir + "/images/bostur1.jpg"
+            text = "TEKNOFEST 2024"
+        elif scenario_index == 1:
+            image_path = current_dir + "/images/bostur2.jpg"
+            text = "TEKNOFEST 2024"
+        elif scenario_index == 2:
+            image_path = current_dir + "/images/bostur3.jpg"
+            text = "TEKNOFEST 2024"
+        elif scenario_index == 3:
+            image_path = current_dir + "/images/bostur4.jpg"
+            text = "TEKNOFEST 2024"
+        elif scenario_index == 4:
+            image_path = current_dir + "/images/yuklutur1.jpg"
+            text = "TEKNOFEST 2024"
+        elif scenario_index == 5:
+            image_path = current_dir + "/images/yuklutur2.jpg"
+            text = "TEKNOFEST 2024"
+        elif scenario_index == 6:
+            image_path = current_dir + "/images/yuklutur3.jpg"
+            text = "TEKNOFEST 2024"
+        elif scenario_index == 7:
+            image_path = current_dir + "/images/yuklutur4.jpg"
+            text = "TEKNOFEST 2024"
+
+        image_label = QLabel(self.dialog)
+        pixmap = QPixmap(image_path)
+        image_label.setPixmap(pixmap)
+        image_label.setScaledContents(True)
+        self.label = QLabel(text, self.dialog)
         font = self.label.font()
         font.setPointSize(20)
         font.setBold(True)
         self.label.setFont(font)
+        self.layout.addWidget(image_label)
         self.layout.addWidget(self.label)
         self.dialog.setLayout(self.layout)
         self.dialog.exec()
@@ -163,7 +206,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.ui.startButton.setIcon(icon1)
                 self.timer.stop()
-                self.ui.comboBox_scen.setEnabled(True)
                 self.ui.finishButton.setVisible(False)
         else:
             self.show_scenario_warning()
@@ -176,16 +218,16 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
             self.approval = False
-            self.timer.stop()  # Timer'ı durdur
-            self.elapsed_time = 0
-            self.ui.lineEdit_time.setText("00:00:00")
+            self.ui.comboBox_scen.setEnabled(True)
+            self.ui.comboBox_scen.setEditable(True)
+            self.reset_info()
         else:
             self.show_scenario_warning()
 
     def show_scenario_warning(self):
         msgBox_select_scenario = QMessageBox()
         msgBox_select_scenario.setIcon(QMessageBox.Icon.Warning)
-        msgBox_select_scenario.setText("Aracı başlatmadan önce lütfen senaryo seçiniz.")
+        msgBox_select_scenario.setText("Aracı başlatmadan önce lütfen senaryo seçiniz ve onayla butonuna basınız.")
         msgBox_select_scenario.setWindowTitle("Senaryo seçiniz.")
         msgBox_select_scenario.setStandardButtons(QMessageBox.StandardButton.Ok)
         msgBox_select_scenario.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
@@ -193,14 +235,16 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     def emergency_sit(self):
         if self.approval:
-            self.ui.startButton.setText("Devam Et")
+            self.ui.startButton.setText("Acil Durum")
             self.ui.emergencyButton.setText("Acil Durum İptal")
+            self.ui.emergencyButton_2.setText("Acil Durum İptal")
             icon1 = QtGui.QIcon()
             icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
             self.timer.stop()
             self.ui.centralwidget.setStyleSheet("background-color: #FF6666;")
             self.approval = False
+            self.emergency = True
             
             msgBox_emergency = QMessageBox(self.ui.centralwidget)
             msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
@@ -209,9 +253,18 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             msgBox_emergency.setStandardButtons(QMessageBox.StandardButton.Ok)
             msgBox_emergency.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
             msgBox_emergency.exec()
-        else:
+
+        elif self.approval == False and self.emergency == True:
             self.ui.centralwidget.setStyleSheet("")
             self.ui.emergencyButton.setText("Acil Durdurma")
+            self.ui.emergencyButton_2.setText("Acil Durdurma")
+            self.ui.startButton.setText("Başlat")
+            self.emergency = False
+            self.ui.comboBox_scen.setEnabled(True)
+            self.ui.finishButton.setVisible(False)
+            self.reset_info()
+
+        elif self.approval == False and self.emergency == False:
             msgBox_emergency = QMessageBox(self.ui.centralwidget)
             msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
             msgBox_emergency.setText("Araç şu anda çalışmıyor.")
@@ -236,19 +289,19 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             String, 'qr_code', self.print_QR, 10)
         
         self.temperature_subscriber = self.create_subscription(
-            Int32, 'sicaklik_data', self.print_temperature, 10)
+            Float32, 'sicaklik_data', self.print_temperature, 10)
         
         self.current_subscriber = self.create_subscription(
-            Int32, 'acisal_hiz_data', self.print_current, 10)
+            Float32, 'acisal_hiz_data', self.print_current, 10)
         
         self.charge_subscriber = self.create_subscription(
-            Int32, 'aku1_data', self.print_charge, 10)
+            Float32, 'aku1_data', self.print_charge, 10)
         
         self.load_subscriber = self.create_subscription(
-            Int32, 'agirlik_data', self.print_load, 10)
+            Float32, 'agirlik_data', self.print_load, 10)
         
         self.velocity_subscriber = self.create_subscription(
-            Int32, 'lineer_hiz_data', self.print_velocity, 10)
+            Float32, 'lineer_hiz_data', self.print_velocity, 10)
 
     def print_QR(self, msg):
         self.qr_received.emit(msg.data)  # QR verisi ile sinyali tetikle
@@ -403,6 +456,7 @@ def main():
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()
+    print(current_dir)
 
     def run_ros():
         rclpy.spin(win)
