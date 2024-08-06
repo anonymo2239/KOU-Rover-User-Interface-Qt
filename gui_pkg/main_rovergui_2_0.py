@@ -56,6 +56,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     start_const = 0
     approval = False
     emergency = False
+    engine_running = False
     i = 0
 
     def __init__(self, parent=None):
@@ -72,13 +73,17 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.pushButton_2.clicked.connect(self.showExitDialog)
         self.ui.pushButton_exit_fullscreen.clicked.connect(self.setFullScreen)
         self.ui.routeInfoButton.clicked.connect(self.createRouteInfoDialog)
+        self.ui.startButton.clicked.connect(self.publish_scenario)
         self.ui.startButton.clicked.connect(self.start_vehicle)
         self.ui.finishButton.clicked.connect(self.get_through_vehicle)
         self.ui.emergencyButton.clicked.connect(self.emergency_sit)
         self.ui.emergencyButton_2.clicked.connect(self.emergency_sit)
-        self.ui.pushButton.clicked.connect(self.approval_sit)
+        self.ui.pushButton.clicked.connect(self.comboBox_status)
+
+        # Connecting Publish Functions
         
-        self.timer = QTimer(self)  # Bu timer diğerlerinin yerine kullanılacak
+        
+        self.timer = QTimer(self)
         self.timer.timeout.connect(self.read_key)
         self.timer.timeout.connect(self.update_time)
         # self.timer.start(100)
@@ -114,7 +119,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.lineEdit_current.setText("0")
         self.ui.lineEdit_load.setText("0")
         self.ui.lineEdit_temperature.setText("0")
-        self.ui.lineEdit_velocity("0")
+        self.ui.lineEdit_velocity.setText("0")
 
     def showExitDialog(self):
         self.msgBox = QMessageBox()
@@ -187,7 +192,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.dialog.setLayout(self.layout)
         self.dialog.exec()
 
-    def approval_sit(self):
+    def comboBox_status(self):
         self.approval = True
         self.ui.comboBox_scen.setEnabled(False)
 
@@ -195,6 +200,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         if self.approval:
             if not self.timer.isActive():
                 self.ui.startButton.setText("Durdur")
+                self.engine_running = True
                 icon1 = QtGui.QIcon()
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-off.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.ui.startButton.setIcon(icon1)
@@ -206,7 +212,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.ui.startButton.setIcon(icon1)
                 self.timer.stop()
-                self.ui.finishButton.setVisible(False)
         else:
             self.show_scenario_warning()
 
@@ -218,6 +223,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
             self.approval = False
+            self.engine_running = False
             self.ui.comboBox_scen.setEnabled(True)
             self.ui.comboBox_scen.setEditable(True)
             self.reset_info()
@@ -284,7 +290,11 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
 
     # //////////////////// QRCODE AND ROS ////////////////////
+
     def connect_ros(self):
+        self.start_scen = self.create_publisher(
+            Int32, 'scen_gui', 10)
+
         self.qr_subscriber = self.create_subscription(
             String, 'qr_code', self.print_QR, 10)
         
@@ -339,6 +349,12 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.lineEdit_velocity.setText(str(msg.data))
         else:
             pass
+
+    def publish_scenario(self):
+        if self.engine_running == False and self.approval == True:
+            msg = Int32()
+            msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
+            self.start_scen.publish(msg)
     
     # ////////////////////////////////////////////////
 
