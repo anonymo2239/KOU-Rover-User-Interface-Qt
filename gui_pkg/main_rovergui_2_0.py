@@ -9,9 +9,10 @@ from rclpy.node import Node
 import rclpy
 from std_msgs.msg import String
 from PyQt6.QtCore import pyqtSignal
-from std_msgs.msg import String, Float32
+from std_msgs.msg import String, Float32, Bool
 from example_interfaces.msg import Int32
 from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
 import select, termios, tty
 
 # Qt
@@ -76,12 +77,11 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.startButton.clicked.connect(self.publish_scenario)
         self.ui.startButton.clicked.connect(self.start_vehicle)
         self.ui.finishButton.clicked.connect(self.get_through_vehicle)
+        self.ui.emergencyButton.clicked.connect(self.publish_emergency_status)
         self.ui.emergencyButton.clicked.connect(self.emergency_sit)
+        self.ui.emergencyButton_2.clicked.connect(self.publish_emergency_status)
         self.ui.emergencyButton_2.clicked.connect(self.emergency_sit)
         self.ui.pushButton.clicked.connect(self.comboBox_status)
-
-        # Connecting Publish Functions
-        
         
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.read_key)
@@ -193,13 +193,23 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.dialog.exec()
 
     def comboBox_status(self):
-        self.approval = True
-        self.ui.comboBox_scen.setEnabled(False)
+        if self.emergency == False:
+            self.approval = True
+            self.ui.comboBox_scen.setEnabled(False)
+        else:
+            msgBox_select_scenario = QMessageBox()
+            msgBox_select_scenario.setIcon(QMessageBox.Icon.Warning)
+            msgBox_select_scenario.setText("Senaryo seçmeden önce acil durumu iptal ediniz.")
+            msgBox_select_scenario.setWindowTitle("Acil durumu kontrol ediniz.")
+            msgBox_select_scenario.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msgBox_select_scenario.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
+            msgBox_select_scenario.exec()
 
     def start_vehicle(self):
         if self.approval:
             if not self.timer.isActive():
                 self.ui.startButton.setText("Durdur")
+                self.ui.label_situation.setText("Çalışıyor")
                 self.engine_running = True
                 icon1 = QtGui.QIcon()
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-off.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
@@ -208,6 +218,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
                 self.ui.finishButton.setVisible(True)
             else:
                 self.ui.startButton.setText("Devam Et")
+                self.ui.label_situation.setText("Duraklatıldı")
                 icon1 = QtGui.QIcon()
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.ui.startButton.setIcon(icon1)
@@ -219,6 +230,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         if self.approval:
             self.ui.finishButton.setVisible(False)
             self.ui.startButton.setText("Başlat")
+            self.ui.label_situation.setText("Beklemede")
             icon1 = QtGui.QIcon()
             icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
@@ -228,7 +240,13 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.comboBox_scen.setEditable(True)
             self.reset_info()
         else:
-            self.show_scenario_warning()
+            msgBox_select_scenario = QMessageBox()
+            msgBox_select_scenario.setIcon(QMessageBox.Icon.Warning)
+            msgBox_select_scenario.setText("Acil Durum İptal butonuna basınız.")
+            msgBox_select_scenario.setWindowTitle("Acil")
+            msgBox_select_scenario.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msgBox_select_scenario.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
+            msgBox_select_scenario.exec()
 
     def show_scenario_warning(self):
         msgBox_select_scenario = QMessageBox()
@@ -240,8 +258,9 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         msgBox_select_scenario.exec()
 
     def emergency_sit(self):
-        if self.approval:
+        if self.approval and self.engine_running:
             self.ui.startButton.setText("Acil Durum")
+            self.ui.label_situation.setText("Acil Durumda")
             self.ui.emergencyButton.setText("Acil Durum İptal")
             self.ui.emergencyButton_2.setText("Acil Durum İptal")
             icon1 = QtGui.QIcon()
@@ -251,7 +270,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.centralwidget.setStyleSheet("background-color: #FF6666;")
             self.approval = False
             self.emergency = True
-            
+            self.engine_running = False
             msgBox_emergency = QMessageBox(self.ui.centralwidget)
             msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
             msgBox_emergency.setText("Araç acil durumdan dolayı durduruldu. Lütfen aracı kontrol ediniz.")
@@ -265,12 +284,25 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.emergencyButton.setText("Acil Durdurma")
             self.ui.emergencyButton_2.setText("Acil Durdurma")
             self.ui.startButton.setText("Başlat")
+            self.ui.label_situation.setText("Beklemede")
             self.emergency = False
             self.ui.comboBox_scen.setEnabled(True)
             self.ui.finishButton.setVisible(False)
             self.reset_info()
 
         elif self.approval == False and self.emergency == False:
+            self.emergency = False
+            self.engine_running = False
+            msgBox_emergency = QMessageBox(self.ui.centralwidget)
+            msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
+            msgBox_emergency.setText("Araç şu anda çalışmıyor.")
+            msgBox_emergency.setWindowTitle("Acil durdurma kapatıldı")
+            msgBox_emergency.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msgBox_emergency.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
+            msgBox_emergency.exec()
+
+        else:
+            self.emergency = False
             msgBox_emergency = QMessageBox(self.ui.centralwidget)
             msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
             msgBox_emergency.setText("Araç şu anda çalışmıyor.")
@@ -292,63 +324,77 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     # //////////////////// QRCODE AND ROS ////////////////////
 
     def connect_ros(self):
-        self.start_scen = self.create_publisher(
-            Int32, 'scen_gui', 10)
+        self.start_scen = self.create_publisher(Int32, 'scen_gui', 10)
+        
+        self.emergency_publisher = self.create_publisher(Bool, 'emergency', 10)
+
+        self.connection_subscriber = self.create_subscription(
+            Odometry, '/diff_cont/odom', self.check_vehicle, 10)
 
         self.qr_subscriber = self.create_subscription(
             String, 'qr_code', self.print_QR, 10)
         
         self.temperature_subscriber = self.create_subscription(
-            Float32, 'sicaklik_data', self.print_temperature, 10)
+            String, 'sicaklik_data', self.print_temperature, 10)
         
         self.current_subscriber = self.create_subscription(
-            Float32, 'acisal_hiz_data', self.print_current, 10)
+            String, 'acisal_hiz_data', self.print_current, 10)
         
         self.charge_subscriber = self.create_subscription(
-            Float32, 'aku1_data', self.print_charge, 10)
+            String, 'aku1_data', self.print_charge, 10)
         
         self.load_subscriber = self.create_subscription(
-            Float32, 'agirlik_data', self.print_load, 10)
+            String, 'agirlik_data', self.print_load, 10)
         
         self.velocity_subscriber = self.create_subscription(
-            Float32, 'lineer_hiz_data', self.print_velocity, 10)
+            String, 'lineer_hiz_data', self.print_velocity, 10)
 
     def print_QR(self, msg):
-        self.qr_received.emit(msg.data)  # QR verisi ile sinyali tetikle
+        self.qr_received.emit(msg.data)
 
     def update_text_edit(self, qr_data):
         _translate = QtCore.QCoreApplication.translate
         self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
 
     def print_temperature(self, msg):
-        if self.approval == True:
+        if self.engine_running == True:
             self.ui.lineEdit_temperature.setText(str(msg.data))
         else:
             pass
 
     def print_current(self, msg):
-        if self.approval == True:
+        if self.engine_running == True:
             self.ui.lineEdit_current.setText(str(msg.data))
         else:
             pass
 
     def print_charge(self, msg):
-        if self.approval == True:
+        if self.engine_running == True:
             self.ui.lineEdit_charge.setText(str(msg.data))
         else:
             pass
 
     def print_load(self, msg):
-        if self.approval == True:
+        if self.engine_running == True:
             self.ui.lineEdit_load.setText(str(msg.data))
         else:
             pass
 
     def print_velocity(self, msg):
-        if self.approval == True:
+        if self.engine_running == True:
             self.ui.lineEdit_velocity.setText(str(msg.data))
         else:
             pass
+
+    def check_vehicle(self, msg):
+        if msg is not None:
+            self.ui.label_connection.setPixmap(QtGui.QPixmap(current_dir + "/images/rss2.png"))
+            self.ui.label_connection_2.setPixmap(QtGui.QPixmap(current_dir + "/images/rss2.png"))
+            self.ui.label_connection_situation.setText("Bağlı")
+        else:
+            self.ui.label_connection.setPixmap(QtGui.QPixmap(current_dir + "/images/rss.png"))  # Bağlantı kesildiğinde kullanılacak resim
+            self.ui.label_connection_2.setPixmap(QtGui.QPixmap(current_dir + "/images/rss.png"))
+            self.ui.label_connection_situation.setText("Bağlantı Kesildi")     
 
     def publish_scenario(self):
         if self.engine_running == False and self.approval == True:
@@ -356,6 +402,16 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
             self.start_scen.publish(msg)
     
+    def publish_emergency_status(self):
+        msg = Bool()
+        if self.approval == True and self.engine_running == True:
+            msg.data = True
+            self.emergency_publisher.publish(msg)
+        else:
+            msg.data = False
+            self.emergency_publisher.publish(msg)
+
+
     # ////////////////////////////////////////////////
 
 
