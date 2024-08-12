@@ -14,13 +14,13 @@ from example_interfaces.msg import Int32
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import select, termios, tty
+from rclpy.qos_event import SubscriptionEventCallbacks
 
 # Qt
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QDialog, QPushButton, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QDialog, QMessageBox
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QPixmap
 
 from gui_pkg.rovergui_2_0 import Ui_rover_gui
@@ -53,7 +53,7 @@ Communications Failed
 
 class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
-    qr_received = pyqtSignal(str)  # QR kod string'ini göndermek için sinyal
+    qr_received = pyqtSignal(str)
     start_const = 0
     approval = False
     emergency = False
@@ -66,6 +66,15 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui = Ui_rover_gui()
         self.ui.setupUi(self)
 
+        self.last_msg_time = None
+        self.check_connection_timer = QTimer(self)
+        self.check_connection_timer.timeout.connect(self.check_connection_status)
+        self.check_connection_timer.start(1000)
+
+        self.odom_subscription = self.create_subscription(
+            Odometry, '/diff_cont/odom', self.check_vehicle, 10
+        )
+
         self.get_logger().info("ROS initialized.")
         self.connect_ros()
         self.qr_received.connect(self.update_text_edit)
@@ -74,12 +83,12 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.pushButton_2.clicked.connect(self.showExitDialog)
         self.ui.pushButton_exit_fullscreen.clicked.connect(self.setFullScreen)
         self.ui.routeInfoButton.clicked.connect(self.createRouteInfoDialog)
-        self.ui.startButton.clicked.connect(self.publish_scenario)
+        self.ui.pushButton.clicked.connect(self.publish_scenario)
+        self.ui.startButton.clicked.connect(self.publish_engine_status_startbutton)
         self.ui.startButton.clicked.connect(self.start_vehicle)
+        self.ui.finishButton.clicked.connect(self.publish_engine_status_finishbutton)
         self.ui.finishButton.clicked.connect(self.get_through_vehicle)
-        self.ui.emergencyButton.clicked.connect(self.publish_emergency_status)
         self.ui.emergencyButton.clicked.connect(self.emergency_sit)
-        self.ui.emergencyButton_2.clicked.connect(self.publish_emergency_status)
         self.ui.emergencyButton_2.clicked.connect(self.emergency_sit)
         self.ui.pushButton.clicked.connect(self.comboBox_status)
         
@@ -210,6 +219,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             if not self.timer.isActive():
                 self.ui.startButton.setText("Durdur")
                 self.ui.label_situation.setText("Çalışıyor")
+                self.ui.label_situation_2.setText("Çalışıyor")
                 self.engine_running = True
                 icon1 = QtGui.QIcon()
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-off.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
@@ -219,6 +229,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             else:
                 self.ui.startButton.setText("Devam Et")
                 self.ui.label_situation.setText("Duraklatıldı")
+                self.ui.label_situation_2.setText("Duraklatıldı")
+                self.engine_running = False
                 icon1 = QtGui.QIcon()
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
                 self.ui.startButton.setIcon(icon1)
@@ -231,6 +243,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.finishButton.setVisible(False)
             self.ui.startButton.setText("Başlat")
             self.ui.label_situation.setText("Beklemede")
+            self.ui.label_situation_2.setText("Beklemede")
             icon1 = QtGui.QIcon()
             icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
@@ -261,6 +274,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         if self.approval and self.engine_running:
             self.ui.startButton.setText("Acil Durum")
             self.ui.label_situation.setText("Acil Durumda")
+            self.ui.label_situation_2.setText("Acil Durumda")
             self.ui.emergencyButton.setText("Acil Durum İptal")
             self.ui.emergencyButton_2.setText("Acil Durum İptal")
             icon1 = QtGui.QIcon()
@@ -271,6 +285,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.approval = False
             self.emergency = True
             self.engine_running = False
+            self.publish_engine_status_emergencybutton()
             msgBox_emergency = QMessageBox(self.ui.centralwidget)
             msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
             msgBox_emergency.setText("Araç acil durumdan dolayı durduruldu. Lütfen aracı kontrol ediniz.")
@@ -285,6 +300,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.emergencyButton_2.setText("Acil Durdurma")
             self.ui.startButton.setText("Başlat")
             self.ui.label_situation.setText("Beklemede")
+            self.ui.label_situation_2.setText("Beklemede")
             self.emergency = False
             self.ui.comboBox_scen.setEnabled(True)
             self.ui.finishButton.setVisible(False)
@@ -324,12 +340,9 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     # //////////////////// QRCODE AND ROS ////////////////////
 
     def connect_ros(self):
-        self.start_scen = self.create_publisher(Int32, 'scen_gui', 10)
+        self.start_scen = self.create_publisher(Int32, 'scene_gui', 10)
         
-        self.emergency_publisher = self.create_publisher(Bool, 'emergency', 10)
-
-        self.connection_subscriber = self.create_subscription(
-            Odometry, '/diff_cont/odom', self.check_vehicle, 10)
+        self.gui_start_publisher = self.create_publisher(Bool, 'gui_start', 10)
 
         self.qr_subscriber = self.create_subscription(
             String, 'qr_code', self.print_QR, 10)
@@ -386,30 +399,65 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         else:
             pass
 
-    def check_vehicle(self, msg):
-        if msg is not None:
-            self.ui.label_connection.setPixmap(QtGui.QPixmap(current_dir + "/images/rss2.png"))
-            self.ui.label_connection_2.setPixmap(QtGui.QPixmap(current_dir + "/images/rss2.png"))
-            self.ui.label_connection_situation.setText("Bağlı")
-        else:
-            self.ui.label_connection.setPixmap(QtGui.QPixmap(current_dir + "/images/rss.png"))  # Bağlantı kesildiğinde kullanılacak resim
-            self.ui.label_connection_2.setPixmap(QtGui.QPixmap(current_dir + "/images/rss.png"))
-            self.ui.label_connection_situation.setText("Bağlantı Kesildi")     
-
     def publish_scenario(self):
-        if self.engine_running == False and self.approval == True:
+        if self.engine_running == False and self.approval == False:
             msg = Int32()
             msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
             self.start_scen.publish(msg)
     
-    def publish_emergency_status(self):
+    def publish_engine_status_startbutton(self):
         msg = Bool()
-        if self.approval == True and self.engine_running == True:
+        if self.approval == True and self.engine_running == False and self.emergency == False:
             msg.data = True
-            self.emergency_publisher.publish(msg)
-        else:
+            self.gui_start_publisher.publish(msg)
+        elif self.approval == True and self.engine_running == True and self.emergency == False:
             msg.data = False
-            self.emergency_publisher.publish(msg)
+            self.gui_start_publisher.publish(msg)
+        else: 
+            pass
+
+    def publish_engine_status_finishbutton(self):
+        msg = Bool()
+        if self.approval == True and self.engine_running == True and self.emergency == False:
+            msg.data = False
+            self.gui_start_publisher.publish(msg)
+        else:
+            pass
+
+    def publish_engine_status_emergencybutton(self):
+        msg = Bool()
+        if self.approval == False and self.engine_running == False and self.emergency == True:
+            msg.data = False
+            self.gui_start_publisher.publish(msg)
+        else:
+            pass
+    
+    def check_vehicle(self, msg):
+        self.last_msg_time = self.get_clock().now()
+
+    def check_connection_status(self):
+        current_time = self.get_clock().now()
+        if self.last_msg_time:
+            elapsed = current_time - self.last_msg_time
+            if elapsed.nanoseconds > 2000000000:
+                self.update_connection_status(False)
+            else:
+                self.update_connection_status(True)
+        else:
+            self.update_connection_status(False)
+
+    def update_connection_status(self, is_connected):
+        if is_connected:
+            pixmap = QtGui.QPixmap(current_dir + "/images/rss2.png")
+            text = "Bağlı"
+        else:
+            pixmap = QtGui.QPixmap(current_dir + "/images/rss.png")
+            text = "Bağlı Değil"
+
+        self.ui.label_connection.setPixmap(pixmap)
+        self.ui.label_connection_3.setPixmap(pixmap)
+        self.ui.label_connection_situation.setText(text)
+        self.ui.label_connection_situation_2.setText(text)
 
 
     # ////////////////////////////////////////////////
@@ -473,7 +521,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     def change_button_color(self, button):
         button.setStyleSheet("background-color: #A9A9A9")
-        QTimer.singleShot(500, self.reset_button_colors)
+        QTimer.singleShot(2000, self.reset_button_colors)
 
     def reset_button_colors(self):
         self.ui.btn_forward.setStyleSheet("")
@@ -502,16 +550,14 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
                 self.target_angular_vel = 0.0
                 self.control_angular_vel = 0.0
 
-            if self.status == 20:
-                print(msg)
-                self.status = 0
+            # Hızı sürekli güncel tut
+            self.control_linear_vel = self.makeSimpleProfile(self.control_linear_vel, self.target_linear_vel, (LIN_VEL_STEP_SIZE / 2.0))
+            self.control_angular_vel = self.makeSimpleProfile(self.control_angular_vel, self.target_angular_vel, (ANG_VEL_STEP_SIZE / 2.0))
 
             twist = Twist()
-            self.control_linear_vel = self.makeSimpleProfile(self.control_linear_vel, self.target_linear_vel, (LIN_VEL_STEP_SIZE / 2.0))
             twist.linear.x = self.control_linear_vel
             twist.linear.y = 0.0
             twist.linear.z = 0.0
-            self.control_angular_vel = self.makeSimpleProfile(self.control_angular_vel, self.target_angular_vel, (ANG_VEL_STEP_SIZE / 2.0))
             twist.angular.x = 0.0
             twist.angular.y = 0.0
             twist.angular.z = self.control_angular_vel
