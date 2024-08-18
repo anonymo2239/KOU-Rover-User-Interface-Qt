@@ -66,6 +66,61 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui = Ui_rover_gui()
         self.ui.setupUi(self)
 
+        self.qr_widgets = {
+            'qr_image_1': self.ui.qr_image_1,
+            'qr_image_2': self.ui.qr_image_2,
+            'qr_image_3': self.ui.qr_image_3,
+            'qr_image_4': self.ui.qr_image_4,
+            'qr_image_5': self.ui.qr_image_5,
+            'qr_image_6': self.ui.qr_image_6,
+            'qr_image_7': self.ui.qr_image_7,
+            'qr_image_8': self.ui.qr_image_8,
+            'qr_image_9': self.ui.qr_image_9,
+            'qr_image_10': self.ui.qr_image_10,
+            'qr_image_11': self.ui.qr_image_11,
+            'qr_image_12': self.ui.qr_image_12,
+            'qr_image_13': self.ui.qr_image_13,
+            'qr_image_14': self.ui.qr_image_14,
+            'qr_image_15': self.ui.qr_image_15,
+            'qr_image_16': self.ui.qr_image_16,
+            'qr_image_17': self.ui.qr_image_17,
+            'qr_image_18': self.ui.qr_image_18,
+            'qr_image_19': self.ui.qr_image_19,
+            'qr_image_20': self.ui.qr_image_20,
+            'qr_image_21': self.ui.qr_image_21,
+            'qr_image_22': self.ui.qr_image_22,
+            'qr_image_23': self.ui.qr_image_23,
+            'qr_image_24': self.ui.qr_image_24,
+            'qr_image_25': self.ui.qr_image_25,
+            'qr_image_26': self.ui.qr_image_26,
+            'qr_image_27': self.ui.qr_image_27,
+            'qr_image_28': self.ui.qr_image_28,
+            'qr_image_29': self.ui.qr_image_29,
+            'qr_image_30': self.ui.qr_image_30,
+            'qr_image_31': self.ui.qr_image_31,
+            'qr_image_32': self.ui.qr_image_32,
+            'qr_image_33': self.ui.qr_image_33,
+            'qr_image_34': self.ui.qr_image_34,
+            'qr_image_35': self.ui.qr_image_35,
+            'qr_image_36': self.ui.qr_image_36,
+            'qr_image_37': self.ui.qr_image_37,
+            'qr_image_38': self.ui.qr_image_38,
+            'qr_image_39': self.ui.qr_image_39,
+            'qr_image_40': self.ui.qr_image_40,
+            'qr_image_41': self.ui.qr_image_41,
+            'qr_image_42': self.ui.qr_image_42,
+            'qr_image_43': self.ui.qr_image_43,
+            'qr_image_44': self.ui.qr_image_44,
+            'qr_image_45': self.ui.qr_image_45,
+            'qr_image_46': self.ui.qr_image_46,
+            'qr_image_47': self.ui.qr_image_47,
+            'qr_image_48': self.ui.qr_image_48,
+            'qr_image_49': self.ui.qr_image_49,
+            'qr_image_50': self.ui.qr_image_50,
+            'qr_image_51': self.ui.qr_image_51,
+            'qr_image_52': self.ui.qr_image_52
+        }
+
         self.last_msg_time = None
         self.check_connection_timer = QTimer(self)
         self.check_connection_timer.timeout.connect(self.check_connection_status)
@@ -368,6 +423,12 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     def update_text_edit(self, qr_data):
         _translate = QtCore.QCoreApplication.translate
         self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
+
+        numeric_part = ''.join(filter(str.isdigit, qr_data))
+        widget_name = f"qr_image_{numeric_part}"
+        # Sözlükten widget'ı bul ve görünürlüğünü ayarla
+        widget = self.qr_widgets.get(widget_name)
+        widget.setVisible(True)
 
     def print_temperature(self, msg):
         if self.engine_running == True:
