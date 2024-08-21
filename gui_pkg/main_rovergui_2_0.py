@@ -9,8 +9,7 @@ from rclpy.node import Node
 import rclpy
 from std_msgs.msg import String
 from PyQt6.QtCore import pyqtSignal
-from std_msgs.msg import String, Float32, Bool
-from example_interfaces.msg import Int32
+from std_msgs.msg import String, Float32, Bool, Int32
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import select, termios, tty
@@ -26,7 +25,7 @@ from PyQt6.QtGui import QPixmap
 from gui_pkg.rovergui_2_0 import Ui_rover_gui
 
 REVISION_MAX_LIN_VEL = 0.22
-REVISION_MAX_ANG_VEL = 2.84
+REVISION_MAX_ANG_VEL = 0.3
 
 LIN_VEL_STEP_SIZE = 0.02
 ANG_VEL_STEP_SIZE = 0.1
@@ -58,6 +57,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     approval = False
     emergency = False
     engine_running = False
+    remote_control = False
+    keyPressEvent = lambda event: None
     i = 0
 
     def __init__(self, parent=None):
@@ -146,92 +147,79 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.emergencyButton.clicked.connect(self.emergency_sit)
         self.ui.emergencyButton_2.clicked.connect(self.emergency_sit)
         self.ui.pushButton.clicked.connect(self.comboBox_status)
+        self.ui.pushButtonTurtle.clicked.connect(self.inActiveController)
         
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.read_key)
         self.timer.timeout.connect(self.update_time)
-        # self.timer.start(100)
+
         self.centralwidget = QtWidgets.QWidget(self)
         self.centralwidget.setObjectName("centralwidget")
         self.elapsed_time = 0
 
-        # Turtle
-        self.settings = termios.tcgetattr(sys.stdin)
-        self.pub = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
-        self.status = 0
-        self.target_linear_vel = 0.0
-        self.target_angular_vel = 0.0
-        self.control_linear_vel = 0.0
-        self.control_angular_vel = 0.0
-
-        # Movement buttons
-        self.ui.btn_forward.clicked.connect(lambda: self.update_twist('w'))
-        self.ui.btn_backward.clicked.connect(lambda: self.update_twist('x'))
-        self.ui.btn_left.clicked.connect(lambda: self.update_twist('a'))
-        self.ui.btn_right.clicked.connect(lambda: self.update_twist('d'))
-        self.ui.btn_brake.clicked.connect(lambda: self.update_twist(' '))
-
-
 
     # //////////////////// THE FUNCTIONS I WROTE ////////////////////
 
-    def reset_visibles(self):
-        self.ui.qr_image_1.setVisible(False)
-        self.ui.qr_image_2.setVisible(False)
-        self.ui.qr_image_3.setVisible(False)
-        self.ui.qr_image_4.setVisible(False)
-        self.ui.qr_image_5.setVisible(False)
-        self.ui.qr_image_6.setVisible(False)
-        self.ui.qr_image_7.setVisible(False)
-        self.ui.qr_image_8.setVisible(False)
-        self.ui.qr_image_9.setVisible(False)
-        self.ui.qr_image_10.setVisible(False)
-        self.ui.qr_image_11.setVisible(False)
-        self.ui.qr_image_12.setVisible(False)
-        self.ui.qr_image_13.setVisible(False)
-        self.ui.qr_image_14.setVisible(False)
-        self.ui.qr_image_15.setVisible(False)
-        self.ui.qr_image_16.setVisible(False)
-        self.ui.qr_image_17.setVisible(False)
-        self.ui.qr_image_18.setVisible(False)
-        self.ui.qr_image_19.setVisible(False)
-        self.ui.qr_image_20.setVisible(False)
-        self.ui.qr_image_21.setVisible(False)
-        self.ui.qr_image_22.setVisible(False)
-        self.ui.qr_image_23.setVisible(False)
-        self.ui.qr_image_24.setVisible(False)
-        self.ui.qr_image_25.setVisible(False)
-        self.ui.qr_image_26.setVisible(False)
-        self.ui.qr_image_27.setVisible(False)
-        self.ui.qr_image_28.setVisible(False)
-        self.ui.qr_image_29.setVisible(False)
-        self.ui.qr_image_30.setVisible(False)
-        self.ui.qr_image_31.setVisible(False)
-        self.ui.qr_image_32.setVisible(False)
-        self.ui.qr_image_33.setVisible(False)
-        self.ui.qr_image_34.setVisible(False)
-        self.ui.qr_image_35.setVisible(False)
-        self.ui.qr_image_36.setVisible(False)
-        self.ui.qr_image_37.setVisible(False)
-        self.ui.qr_image_38.setVisible(False)
-        self.ui.qr_image_39.setVisible(False)
-        self.ui.qr_image_40.setVisible(False)
-        self.ui.qr_image_41.setVisible(False)
-        self.ui.qr_image_42.setVisible(False)
-        self.ui.qr_image_43.setVisible(False)
-        self.ui.qr_image_44.setVisible(False)
-        self.ui.qr_image_45.setVisible(False)
-        self.ui.qr_image_46.setVisible(False)
-        self.ui.qr_image_47.setVisible(False)
-        self.ui.qr_image_48.setVisible(False)
-        self.ui.qr_image_49.setVisible(False)
-        self.ui.qr_image_50.setVisible(False)
-        self.ui.qr_image_51.setVisible(False)
-        self.ui.qr_image_52.setVisible(False)
+    def inActiveController(self):
+        if not self.remote_control:
+            self.ui.pushButtonTurtle.setText("Uzaktan Kontrol Açık")
+            self.ui.btn_backward.setEnabled(True)
+            self.ui.btn_brake.setEnabled(True)
+            self.ui.btn_forward.setEnabled(True)
+            self.ui.btn_left.setEnabled(True)
+            self.ui.btn_right.setEnabled(True)
+            icon3 = QtGui.QIcon()
+            icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/game_green.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+            self.ui.pushButtonTurtle.setIcon(icon3)
+            self.remote_control = True
+
+            # Turtle
+            self.settings = termios.tcgetattr(sys.stdin)
+            self.pub = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+            self.status = 0
+            self.target_linear_vel = 0.0
+            self.target_angular_vel = 0.0
+            self.control_linear_vel = 0.0
+            self.control_angular_vel = 0.0
+
+            # Movement buttons
+            self.ui.btn_forward.clicked.connect(lambda: self.update_twist('w'))
+            self.ui.btn_backward.clicked.connect(lambda: self.update_twist('x'))
+            self.ui.btn_left.clicked.connect(lambda: self.update_twist('a'))
+            self.ui.btn_right.clicked.connect(lambda: self.update_twist('d'))
+            self.ui.btn_brake.clicked.connect(lambda: self.update_twist(' '))
+            
+            self.time_timer = QTimer(self)
+            self.time_timer.timeout.connect(self.update_twist)
+            self.time_timer.timeout.connect(self.read_key)
+            self.time_timer.start(100)
+        else:
+            self.ui.pushButtonTurtle.setText("Uzaktan Kontrol Kapalı")
+            self.ui.btn_backward.setEnabled(False)
+            self.ui.btn_brake.setEnabled(False)
+            self.ui.btn_forward.setEnabled(False)
+            self.ui.btn_left.setEnabled(False)
+            self.ui.btn_right.setEnabled(False)
+            icon3 = QtGui.QIcon()
+            icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/game_red.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+            self.ui.pushButtonTurtle.setIcon(icon3)
+            self.remote_control = False
+
+            self.target_linear_vel = 0.0
+            self.target_angular_vel = 0.0
+            self.control_linear_vel = 0.0
+            self.control_angular_vel = 0.0
+            self.update_twist()
+
+            self.time_timer.stop()
+
+
+    def reset_qr_map(self):
+        for i in range(1, 53):
+            widget = getattr(self.ui, f'qr_image_{i}')
+            widget.setVisible(False)
 
     def reset_info(self):
         self.timer.stop()
-        self.reset_visibles()
         self.elapsed_time = 0
         self.ui.lineEdit_time.setText("00:00:00")
         self.ui.lineEdit_charge.setText("0")
@@ -336,6 +324,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
                 self.ui.startButton.setIcon(icon1)
                 self.timer.start(1000)
                 self.ui.finishButton.setVisible(True)
+                self.reset_qr_map()
             else:
                 self.ui.startButton.setText("Devam Et")
                 self.ui.label_situation.setText("Duraklatıldı")
@@ -457,6 +446,9 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.qr_subscriber = self.create_subscription(
             String, 'qr_code', self.print_QR, 10)
         
+        self.obstacle_subscriber = self.create_subscription(
+            Int32, 'obstacle', self.print_obstacle, 10)
+        
         self.temperature_subscriber = self.create_subscription(
             String, 'sicaklik_data', self.print_temperature, 10)
         
@@ -479,9 +471,9 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         _translate = QtCore.QCoreApplication.translate
         self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
 
+        self.reset_qr_map()
         numeric_part = ''.join(filter(str.isdigit, qr_data))
         widget_name = f"qr_image_{numeric_part}"
-        # Sözlükten widget'ı bul ve görünürlüğünü ayarla
         widget = self.qr_widgets.get(widget_name)
         widget.setVisible(True)
 
@@ -490,6 +482,18 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.lineEdit_temperature.setText(str(msg.data))
         else:
             pass
+
+    def print_obstacle(self, msg):
+        if msg.data == 1:
+            self.ui.label_situation.setText("Engel Algılandı")
+            self.ui.label_situation_2.setText("Engel Algılandı")
+        else:
+            if self.engine_running:
+                self.ui.label_situation.setText("Çalışıyor")
+                self.ui.label_situation.setText("Çalışıyor")
+            else:
+                self.ui.label_situation.setText("Beklemede")
+                self.ui.label_situation.setText("Beklemede")
 
     def print_current(self, msg):
         if self.engine_running == True:
@@ -578,7 +582,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     # ////////////////////////////////////////////////
 
-
     # //////////////////// TURTLE ////////////////////
 
     def getKey(self):
@@ -616,6 +619,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         key = self.getKey()
         if key:
             self.update_twist(key)
+        else:
+            self.update_twist()
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -646,25 +651,26 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.btn_right.setStyleSheet("")
         self.ui.btn_brake.setStyleSheet("")
 
-    def update_twist(self, key):
+    def update_twist(self, key=None):
         try:
-            if key == 'w':
-                self.target_linear_vel = self.checkLinearLimitVelocity(self.target_linear_vel + LIN_VEL_STEP_SIZE)
-                self.status += 1
-            elif key == 'x':
-                self.target_linear_vel = self.checkLinearLimitVelocity(self.target_linear_vel - LIN_VEL_STEP_SIZE)
-                self.status += 1
-            elif key == 'a':
-                self.target_angular_vel = self.checkAngularLimitVelocity(self.target_angular_vel + ANG_VEL_STEP_SIZE)
-                self.status += 1
-            elif key == 'd':
-                self.target_angular_vel = self.checkAngularLimitVelocity(self.target_angular_vel - ANG_VEL_STEP_SIZE)
-                self.status += 1
-            elif key == ' ' or key == 's':
-                self.target_linear_vel = 0.0
-                self.control_linear_vel = 0.0
-                self.target_angular_vel = 0.0
-                self.control_angular_vel = 0.0
+            if key:
+                if key == 'w':
+                    self.target_linear_vel = self.checkLinearLimitVelocity(self.target_linear_vel + LIN_VEL_STEP_SIZE)
+                    self.status += 1
+                elif key == 'x':
+                    self.target_linear_vel = self.checkLinearLimitVelocity(self.target_linear_vel - LIN_VEL_STEP_SIZE)
+                    self.status += 1
+                elif key == 'a':
+                    self.target_angular_vel = self.checkAngularLimitVelocity(self.target_angular_vel + ANG_VEL_STEP_SIZE)
+                    self.status += 1
+                elif key == 'd':
+                    self.target_angular_vel = self.checkAngularLimitVelocity(self.target_angular_vel - ANG_VEL_STEP_SIZE)
+                    self.status += 1
+                elif key == ' ' or key == 's':
+                    self.target_linear_vel = 0.0
+                    self.control_linear_vel = 0.0
+                    self.target_angular_vel = 0.0
+                    self.control_angular_vel = 0.0
 
             # Hızı sürekli güncel tut
             self.control_linear_vel = self.makeSimpleProfile(self.control_linear_vel, self.target_linear_vel, (LIN_VEL_STEP_SIZE / 2.0))
@@ -682,8 +688,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         except Exception as ex:
             print("Hata: ", str(ex))
 
+    
     # ////////////////////////////////////////////////
-
 
 def main():
     rclpy.init(args=None)
