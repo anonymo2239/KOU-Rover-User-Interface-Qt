@@ -504,12 +504,36 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     def print_charge(self, msg):
         if self.engine_running == True:
             self.ui.lineEdit_charge.setText(str(msg.data))
+            if msg.data < 20:
+                self.ui.centralwidget.setStyleSheet("background-color: #FF6666;")
+                msgBox_battery = QMessageBox(self.ui.centralwidget)
+                msgBox_battery.setIcon(QMessageBox.Icon.Warning)
+                msgBox_battery.setText("Araç şarj seviyesi %20'nin altında. Lütfe")
+                msgBox_battery.setWindowTitle("Düşük Şarj Seviyesi")
+                msgBox_battery.setStandardButtons(QMessageBox.StandardButton.Ok)
+                msgBox_battery.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
+                msgBox_battery.exec()
         else:
             pass
 
     def print_load(self, msg):
         if self.engine_running == True:
             self.ui.lineEdit_load.setText(str(msg.data))
+            if msg.data > 125:
+                self.ui.label_load_response.setText("Aşırı Yüklü")
+                icon3 = QtGui.QIcon()
+                icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/boxes_red.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+                self.ui.label_load.setIcon(icon3)
+            elif msg.data <= 125 and msg.data >= 3:
+                self.ui.label_load_response.setText("Aşırı Yüklü")
+                icon3 = QtGui.QIcon()
+                icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/boxes.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+                self.ui.label_load.setIcon(icon3)
+            else:
+                self.ui.label_load_response.setText("Yüklü Değil")
+                icon3 = QtGui.QIcon()
+                icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/boxes.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
+                self.ui.label_load.setIcon(icon3)
         else:
             pass
 
