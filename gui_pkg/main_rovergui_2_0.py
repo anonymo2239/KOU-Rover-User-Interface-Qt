@@ -7,13 +7,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # ROS 2
 from rclpy.node import Node
 import rclpy
-from std_msgs.msg import String
 from PyQt6.QtCore import pyqtSignal
-from std_msgs.msg import String, Float32, Bool, Int32
+from std_msgs.msg import String, Bool, Int32
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import select, termios, tty
-from rclpy.qos_event import SubscriptionEventCallbacks
 
 # Qt
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -502,38 +500,39 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             pass
 
     def print_charge(self, msg):
+        charge_value = int(msg.data)
         if self.engine_running == True:
-            self.ui.lineEdit_charge.setText(str(msg.data))
-            if msg.data < 20:
+            self.ui.lineEdit_charge.setText(str(charge_value))
+            if charge_value < 20:
                 self.ui.centralwidget.setStyleSheet("background-color: #FF6666;")
                 msgBox_battery = QMessageBox(self.ui.centralwidget)
                 msgBox_battery.setIcon(QMessageBox.Icon.Warning)
-                msgBox_battery.setText("Araç şarj seviyesi %20'nin altında. Lütfe")
+                msgBox_battery.setText("Araç şarj seviyesi %20'nin altında. Lütfen şarj ediniz.")
                 msgBox_battery.setWindowTitle("Düşük Şarj Seviyesi")
                 msgBox_battery.setStandardButtons(QMessageBox.StandardButton.Ok)
                 msgBox_battery.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
                 msgBox_battery.exec()
+            else:
+                self.ui.centralwidget.setStyleSheet("")
         else:
             pass
 
     def print_load(self, msg):
+        load_value = int(msg.data)
         if self.engine_running == True:
-            self.ui.lineEdit_load.setText(str(msg.data))
-            if msg.data > 125:
+            self.ui.lineEdit_load.setText(str(load_value))
+            if load_value > 125:
                 self.ui.label_load_response.setText("Aşırı Yüklü")
-                icon3 = QtGui.QIcon()
-                icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/boxes_red.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
-                self.ui.label_load.setIcon(icon3)
-            elif msg.data <= 125 and msg.data >= 3:
-                self.ui.label_load_response.setText("Aşırı Yüklü")
-                icon3 = QtGui.QIcon()
-                icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/boxes.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
-                self.ui.label_load.setIcon(icon3)
+                pixmap = QtGui.QPixmap(current_dir + "/images/boxes_red.png")
+                self.ui.label_load.setPixmap(pixmap)
+            elif load_value <= 125 and load_value >= 3:
+                self.ui.label_load_response.setText("Yüklü")
+                pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
+                self.ui.label_load.setPixmap(pixmap)
             else:
                 self.ui.label_load_response.setText("Yüklü Değil")
-                icon3 = QtGui.QIcon()
-                icon3.addPixmap(QtGui.QPixmap(current_dir + "/images/boxes.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
-                self.ui.label_load.setIcon(icon3)
+                pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
+                self.ui.label_load.setPixmap(pixmap)
         else:
             pass
 
