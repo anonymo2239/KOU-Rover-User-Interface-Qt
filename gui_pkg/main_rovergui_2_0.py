@@ -58,6 +58,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     remote_control = False
     keyPressEvent = lambda event: None
     i = 0
+    j = 0
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
@@ -444,6 +445,9 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.qr_subscriber = self.create_subscription(
             String, 'qr_code', self.print_QR, 10)
         
+        self.qr_subscriber2 = self.create_subscription(
+            String, 'qr_code2', self.print_QR2, 10)
+        
         self.obstacle_subscriber = self.create_subscription(
             Int32, 'obstacle', self.print_obstacle, 10)
         
@@ -463,6 +467,9 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             String, 'lineer_hiz_data', self.print_velocity, 10)
 
     def print_QR(self, msg):
+        self.qr_received.emit(msg.data)
+        
+    def print_QR2(self, msg):
         self.qr_received.emit(msg.data)
 
     def update_text_edit(self, qr_data):

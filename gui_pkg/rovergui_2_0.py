@@ -698,7 +698,7 @@ class Ui_rover_gui(object):
         self.tab_2.setObjectName("tab_2")
         self.webView = QWebEngineView(parent=self.tab_2)
         self.webView.setGeometry(QtCore.QRect(5, 5, 960, 731))
-        self.webView.setUrl(QtCore.QUrl("http://127.0.0.1:5000/map"))
+        self.webView.setUrl(QtCore.QUrl("http://127.0.0.1:5000"))
         self.webView.setObjectName("webView")
         self.map_tab.addTab(self.tab_2, "")
         self.tab_3 = QtWidgets.QWidget()
@@ -1013,10 +1013,11 @@ class Ui_rover_gui(object):
         self.retranslateUi(rover_gui)
         self.tabWidget_vehicle_sit.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(rover_gui)
+        '''
         self.timer = QTimer()
         self.timer.timeout.connect(self.refresh_webview)
         self.timer.start(1000)  # 1000 ms = 1 saniye
-
+        '''
     def refresh_webview(self):
         self.webView.reload()
 

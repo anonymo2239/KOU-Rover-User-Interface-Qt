@@ -38,6 +38,7 @@ setup(
 
             "main_rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",
             "rovergui_2_0 = gui_pkg.main_rovergui_2_0:main",
+            "web_map = gui_pkg.web_map:main",
         ],
     },
 )
