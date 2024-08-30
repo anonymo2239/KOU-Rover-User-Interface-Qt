@@ -448,6 +448,12 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.qr_subscriber2 = self.create_subscription(
             String, 'qr_code2', self.print_QR2, 10)
         
+        self.lift_status_sub = self.create_subscription(
+            Bool, 'lift_command', self.lift_status, 10)
+        
+        self.overload_sub = self.create_subscription(
+            Bool, 'overload_error', self.overload, 10)
+        
         self.obstacle_subscriber = self.create_subscription(
             Int32, 'obstacle', self.print_obstacle, 10)
         
@@ -528,18 +534,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         load_value = int(msg.data)
         if self.engine_running == True:
             self.ui.lineEdit_load.setText(str(load_value))
-            if load_value > 125:
-                self.ui.label_load_response.setText("Aşırı Yüklü")
-                pixmap = QtGui.QPixmap(current_dir + "/images/boxes_red.png")
-                self.ui.label_load.setPixmap(pixmap)
-            elif load_value <= 125 and load_value >= 3:
-                self.ui.label_load_response.setText("Yüklü")
-                pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
-                self.ui.label_load.setPixmap(pixmap)
-            else:
-                self.ui.label_load_response.setText("Yüklü Değil")
-                pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
-                self.ui.label_load.setPixmap(pixmap)
         else:
             pass
 
@@ -554,6 +548,24 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             msg = Int32()
             msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
             self.start_scen.publish(msg)
+
+    def lift_status(self):
+        msg = Bool()
+        if msg.data == True:
+            self.ui.label_load_response.setText("Yüklü")
+        else:
+            self.ui.label_load_response.setText("Yüklü Değil")
+
+    def overload(self):
+        msg = Bool()
+        if msg.data == True:
+            self.ui.label_load_response.setText("Aşırı Yük")
+            pixmap = QtGui.QPixmap(current_dir + "/images/boxes_red.png")
+            self.ui.label_load.setPixmap(pixmap)
+        else:
+            pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
+            self.ui.label_load.setPixmap(pixmap)
+            pass
     
     def publish_engine_status_startbutton(self):
         msg = Bool()
@@ -582,7 +594,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         else:
             pass
     
-    def check_vehicle(self, msg):
+    def check_vehicle(self):
         self.last_msg_time = self.get_clock().now()
 
     def check_connection_status(self):

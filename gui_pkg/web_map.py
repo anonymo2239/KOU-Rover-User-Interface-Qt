@@ -3,11 +3,13 @@ from flask_socketio import SocketIO, emit
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import OccupancyGrid
-from PIL import Image
+from nav_msgs.msg import Odometry
+from PIL import Image, ImageDraw
 import io
 import base64
 import threading
 import numpy as np
+import math
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -16,7 +18,7 @@ global ros_node
 
 class ROS2Subscriber(Node):
     def __init__(self):
-        super().__init__('map_subscriber')
+        super().__init__('map_and_odom_subscriber')
         
         self.subscription_map = self.create_subscription(
             OccupancyGrid,
@@ -24,7 +26,14 @@ class ROS2Subscriber(Node):
             self.map_callback,
             10)
         
+        self.subscription_odom = self.create_subscription(
+            Odometry,
+            '/diff_cont/odom',
+            self.odom_callback,
+            10)
+        
         self.last_map_message = None
+        self.last_odom_message = None
         self.get_logger().info('Node initialized')
 
     def map_callback(self, msg):
@@ -32,8 +41,13 @@ class ROS2Subscriber(Node):
         self.last_map_message = msg
         self.send_map_data()
 
+    def odom_callback(self, msg):
+        self.get_logger().info("Odom data received")
+        self.last_odom_message = msg
+        self.send_map_data()
+
     def send_map_data(self):
-        if self.last_map_message is not None:
+        if self.last_map_message is not None and self.last_odom_message is not None:
             image = self.create_map_image()
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format='PNG')
@@ -52,17 +66,17 @@ class ROS2Subscriber(Node):
         data = np.array(self.last_map_message.data).reshape((height, width))
 
         # Scale up the image
-        scale_factor = 4  # You can adjust this value
+        scale_factor = 4
         data_upscaled = np.kron(data, np.ones((scale_factor, scale_factor)))
 
         # Create a grayscale image
         image = Image.fromarray(data_upscaled.astype(np.uint8))
-        image = image.point(lambda p: p * 255 // 100)  # Normalize to 0-255 range
+        image = image.point(lambda p: p * 255 // 100)
         
         # Convert to RGB
         image = image.convert('RGB')
         
-        # Create a color map: -1 (unknown) -> light gray, 0 (free) -> white, 100 (occupied) -> black
+        # Create a color map
         color_map = np.array([[192, 192, 192],  # Light gray for unknown
                               [255, 255, 255],  # White for free space
                               [0, 0, 0]])       # Black for occupied space
@@ -74,8 +88,37 @@ class ROS2Subscriber(Node):
         image_array[data_upscaled == 100] = color_map[2]
         
         image = Image.fromarray(image_array)
+        image = image.transpose(Image.FLIP_TOP_BOTTOM)
 
-        return image.transpose(Image.FLIP_TOP_BOTTOM)
+        # Draw robot position
+        if self.last_odom_message is not None:
+            draw = ImageDraw.Draw(image)
+            robot_x = self.last_odom_message.pose.pose.position.x
+            robot_y = self.last_odom_message.pose.pose.position.y
+            orientation = self.last_odom_message.pose.pose.orientation
+
+            # Convert robot position to pixel coordinates
+            pixel_x = int((robot_x - self.last_map_message.info.origin.position.x) / self.last_map_message.info.resolution * scale_factor)
+            pixel_y = int((robot_y - self.last_map_message.info.origin.position.y) / self.last_map_message.info.resolution * scale_factor)
+            pixel_y = image.height - pixel_y  # Flip y-coordinate
+
+            # Calculate robot orientation
+            yaw = math.atan2(2.0 * (orientation.w * orientation.z + orientation.x * orientation.y),
+                             1.0 - 2.0 * (orientation.y * orientation.y + orientation.z * orientation.z))
+
+            # Draw triangle representing the robot
+            triangle_size = 20
+            x1 = pixel_x + triangle_size * math.cos(yaw)
+            y1 = pixel_y - triangle_size * math.sin(yaw)
+            x2 = pixel_x + triangle_size * math.cos(yaw + 2.0944)  # 2.0944 radians = 120 degrees
+            y2 = pixel_y - triangle_size * math.sin(yaw + 2.0944)
+            x3 = pixel_x + triangle_size * math.cos(yaw - 2.0944)
+            y3 = pixel_y - triangle_size * math.sin(yaw - 2.0944)
+
+            draw.polygon([(x1, y1), (x2, y2), (x3, y3)], fill=(255, 0, 0))  # Red triangle
+
+        return image
+
 
 @app.route('/')
 def index():

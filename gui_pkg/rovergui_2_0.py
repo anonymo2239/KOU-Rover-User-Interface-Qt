@@ -1013,11 +1013,11 @@ class Ui_rover_gui(object):
         self.retranslateUi(rover_gui)
         self.tabWidget_vehicle_sit.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(rover_gui)
-        '''
+        
         self.timer = QTimer()
         self.timer.timeout.connect(self.refresh_webview)
         self.timer.start(1000)  # 1000 ms = 1 saniye
-        '''
+        
     def refresh_webview(self):
         self.webView.reload()
 
@@ -1081,4 +1081,3 @@ class Ui_rover_gui(object):
         self.label_sit_18.setText(_translate("rover_gui", "kg"))
         self.pushButton_2.setText(_translate("rover_gui", "Çıkış"))
         self.menuKontrol_Paneli.setTitle(_translate("rover_gui", "Kontrol Paneli"))
-
