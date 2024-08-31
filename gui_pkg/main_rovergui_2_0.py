@@ -51,6 +51,7 @@ Communications Failed
 class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     qr_received = pyqtSignal(str)
+    qr_received2 = pyqtSignal(str)
     start_const = 0
     approval = False
     emergency = False
@@ -133,6 +134,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.get_logger().info("ROS initialized.")
         self.connect_ros()
         self.qr_received.connect(self.update_text_edit)
+        self.qr_received2.connect(self.update_text_edit2)
 
         # Connecting Functions 
         self.ui.pushButton_2.clicked.connect(self.showExitDialog)
@@ -445,9 +447,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.qr_subscriber = self.create_subscription(
             String, 'qr_code', self.print_QR, 10)
         
-        self.qr_subscriber2 = self.create_subscription(
-            String, 'qr_code2', self.print_QR2, 10)
-        
         self.lift_status_sub = self.create_subscription(
             Bool, 'lift_command', self.lift_status, 10)
         
@@ -473,9 +472,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             String, 'lineer_hiz_data', self.print_velocity, 10)
 
     def print_QR(self, msg):
-        self.qr_received.emit(msg.data)
-        
-    def print_QR2(self, msg):
         self.qr_received.emit(msg.data)
 
     def update_text_edit(self, qr_data):
@@ -516,17 +512,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         charge_value = int(msg.data)
         if self.engine_running == True:
             self.ui.lineEdit_charge.setText(str(charge_value))
-            if charge_value < 20:
-                self.ui.centralwidget.setStyleSheet("background-color: #FF6666;")
-                msgBox_battery = QMessageBox(self.ui.centralwidget)
-                msgBox_battery.setIcon(QMessageBox.Icon.Warning)
-                msgBox_battery.setText("Araç şarj seviyesi %20'nin altında. Lütfen şarj ediniz.")
-                msgBox_battery.setWindowTitle("Düşük Şarj Seviyesi")
-                msgBox_battery.setStandardButtons(QMessageBox.StandardButton.Ok)
-                msgBox_battery.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
-                msgBox_battery.exec()
-            else:
-                self.ui.centralwidget.setStyleSheet("")
+            #if charge_value < 20:
+                
         else:
             pass
 
@@ -539,7 +526,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     def print_velocity(self, msg):
         if self.engine_running == True:
-            self.ui.lineEdit_velocity.setText(str(msg.data))
+            self.ui.lineEdit_velocity.setText(str((msg.data)/10))
         else:
             pass
 
@@ -549,15 +536,13 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
             self.start_scen.publish(msg)
 
-    def lift_status(self):
-        msg = Bool()
+    def lift_status(self, msg):
         if msg.data == True:
             self.ui.label_load_response.setText("Yüklü")
         else:
             self.ui.label_load_response.setText("Yüklü Değil")
 
-    def overload(self):
-        msg = Bool()
+    def overload(self, msg):
         if msg.data == True:
             self.ui.label_load_response.setText("Aşırı Yük")
             pixmap = QtGui.QPixmap(current_dir + "/images/boxes_red.png")
@@ -594,7 +579,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         else:
             pass
     
-    def check_vehicle(self):
+    def check_vehicle(self, msg):
         self.last_msg_time = self.get_clock().now()
 
     def check_connection_status(self):
