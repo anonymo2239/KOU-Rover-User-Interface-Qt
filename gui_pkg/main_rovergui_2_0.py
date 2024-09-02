@@ -7,7 +7,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # ROS 2
 from rclpy.node import Node
 import rclpy
-from PyQt6.QtCore import pyqtSignal
 from std_msgs.msg import String, Bool, Int32
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -51,7 +50,6 @@ Communications Failed
 class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     qr_received = pyqtSignal(str)
-    qr_received2 = pyqtSignal(str)
     start_const = 0
     approval = False
     emergency = False
@@ -59,8 +57,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     remote_control = False
     keyPressEvent = lambda event: None
     i = 0
-    j = 0
-
+    
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         Node.__init__(self, 'main_window_node')
@@ -444,31 +441,31 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.gui_start_publisher = self.create_publisher(Bool, 'gui_start', 10)
 
         self.qr_subscriber = self.create_subscription(
-            String, 'qr_code', self.print_QR, 10)
+            String, 'qr_code', self.print_QR, 100)
         
         self.lift_status_sub = self.create_subscription(
-            Bool, 'lift_command', self.lift_status, 10)
+            Bool, 'lift_command', self.lift_status, 100)
         
         self.overload_sub = self.create_subscription(
-            Bool, 'overload_error', self.overload, 10)
+            Bool, 'overload_error', self.overload, 100)
         
         self.obstacle_subscriber = self.create_subscription(
-            Int32, 'obstacle', self.print_obstacle, 10)
+            Int32, 'obstacle', self.print_obstacle, 100)
         
         self.temperature_subscriber = self.create_subscription(
-            String, 'sicaklik_data', self.print_temperature, 10)
+            String, 'sicaklik_data', self.print_temperature, 100)
         
         self.current_subscriber = self.create_subscription(
-            String, 'acisal_hiz_data', self.print_current, 10)
+            String, 'acisal_hiz_data', self.print_current, 100)
         
-        self.charge_subscriber = self.create_subscription(
-            String, 'aku1_data', self.print_charge, 10)
+        '''self.charge_subscriber = self.create_subscription(
+            String, 'charge_packs', self.print_charge, 100)'''
         
-        self.load_subscriber = self.create_subscription(
-            String, 'agirlik_data', self.print_load, 10)
+        '''self.load_subscriber = self.create_subscription(
+            String, 'agirlik_data', self.print_load, 100)'''
         
-        self.velocity_subscriber = self.create_subscription(
-            String, 'lineer_hiz_data', self.print_velocity, 10)
+        '''self.velocity_subscriber = self.create_subscription(
+            String, 'lineer_hiz_data', self.print_velocity, 100)'''
 
     def print_QR(self, msg):
         self.qr_received.emit(msg.data)
@@ -507,34 +504,24 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         else:
             pass
 
-    def print_charge(self, msg):
-        charge_value = int(msg.data)
+    '''def print_charge(self, msg):
         if self.engine_running == True:
-            self.ui.lineEdit_charge.setText(str(charge_value))
-            #if charge_value < 20:
-                
+            self.ui.lineEdit_charge.setText(str(msg.data))
         else:
-            pass
+            pass'''
 
-    def print_load(self, msg):
-        load_value = int(msg.data)
+    '''def print_load(self, msg):
         if self.engine_running == True:
-            self.ui.lineEdit_load.setText(str(load_value))
+            self.ui.lineEdit_load.setText(str(msg.data))
         else:
-            pass
+            pass'''
 
-    def print_velocity(self, msg):
+    '''def print_velocity(self, msg):
         if self.engine_running == True:
-            self.ui.lineEdit_velocity.setText(str((msg.data)/10))
+            self.ui.lineEdit_velocity.setText(str(msg.data))
         else:
-            pass
-
-    def publish_scenario(self):
-        if self.engine_running == False and self.approval == False:
-            msg = Int32()
-            msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
-            self.start_scen.publish(msg)
-
+            pass'''
+    
     def lift_status(self, msg):
         if msg.data == True:
             self.ui.label_load_response.setText("Yüklü")
@@ -550,6 +537,12 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
             self.ui.label_load.setPixmap(pixmap)
             pass
+
+    def publish_scenario(self):
+        if self.engine_running == False and self.approval == False:
+            msg = Int32()
+            msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
+            self.start_scen.publish(msg)
     
     def publish_engine_status_startbutton(self):
         msg = Bool()
