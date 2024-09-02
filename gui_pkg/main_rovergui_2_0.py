@@ -134,7 +134,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.get_logger().info("ROS initialized.")
         self.connect_ros()
         self.qr_received.connect(self.update_text_edit)
-        self.qr_received2.connect(self.update_text_edit2)
 
         # Connecting Functions 
         self.ui.pushButton_2.clicked.connect(self.showExitDialog)
