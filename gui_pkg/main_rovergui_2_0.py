@@ -3,7 +3,6 @@ import threading
 import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-
 # ROS 2
 from rclpy.node import Node
 import rclpy
@@ -14,9 +13,8 @@ import select, termios, tty
 
 # Qt
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QDialog, QMessageBox
-from PyQt6.QtCore import QTimer
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QDialog, QMessageBox, QLineEdit
+from PyQt6.QtCore import QTimer, pyqtSignal, QMutex, Qt
 from PyQt6.QtGui import QPixmap
 
 from gui_pkg.rovergui_2_0 import Ui_rover_gui
@@ -31,9 +29,9 @@ msg = """
 Control Re-vision 2024!
 -------------------------------
 Moving around:
-        w
-   a    s    d
-        x
+ w
+ a s d
+ x
 
 w/x : increase/decrease linear velocity (~ 0.22)
 a/d : increase/decrease angular velocity (~ 2.84)
@@ -50,74 +48,24 @@ Communications Failed
 class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     qr_received = pyqtSignal(str)
-    start_const = 0
-    approval = False
-    emergency = False
-    engine_running = False
-    remote_control = False
-    keyPressEvent = lambda event: None
-    i = 0
-    
+    update_gui_signal = pyqtSignal(str, str)
+   
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         Node.__init__(self, 'main_window_node')
         self.ui = Ui_rover_gui()
         self.ui.setupUi(self)
 
-        self.qr_widgets = {
-            'qr_image_1': self.ui.qr_image_1,
-            'qr_image_2': self.ui.qr_image_2,
-            'qr_image_3': self.ui.qr_image_3,
-            'qr_image_4': self.ui.qr_image_4,
-            'qr_image_5': self.ui.qr_image_5,
-            'qr_image_6': self.ui.qr_image_6,
-            'qr_image_7': self.ui.qr_image_7,
-            'qr_image_8': self.ui.qr_image_8,
-            'qr_image_9': self.ui.qr_image_9,
-            'qr_image_10': self.ui.qr_image_10,
-            'qr_image_11': self.ui.qr_image_11,
-            'qr_image_12': self.ui.qr_image_12,
-            'qr_image_13': self.ui.qr_image_13,
-            'qr_image_14': self.ui.qr_image_14,
-            'qr_image_15': self.ui.qr_image_15,
-            'qr_image_16': self.ui.qr_image_16,
-            'qr_image_17': self.ui.qr_image_17,
-            'qr_image_18': self.ui.qr_image_18,
-            'qr_image_19': self.ui.qr_image_19,
-            'qr_image_20': self.ui.qr_image_20,
-            'qr_image_21': self.ui.qr_image_21,
-            'qr_image_22': self.ui.qr_image_22,
-            'qr_image_23': self.ui.qr_image_23,
-            'qr_image_24': self.ui.qr_image_24,
-            'qr_image_25': self.ui.qr_image_25,
-            'qr_image_26': self.ui.qr_image_26,
-            'qr_image_27': self.ui.qr_image_27,
-            'qr_image_28': self.ui.qr_image_28,
-            'qr_image_29': self.ui.qr_image_29,
-            'qr_image_30': self.ui.qr_image_30,
-            'qr_image_31': self.ui.qr_image_31,
-            'qr_image_32': self.ui.qr_image_32,
-            'qr_image_33': self.ui.qr_image_33,
-            'qr_image_34': self.ui.qr_image_34,
-            'qr_image_35': self.ui.qr_image_35,
-            'qr_image_36': self.ui.qr_image_36,
-            'qr_image_37': self.ui.qr_image_37,
-            'qr_image_38': self.ui.qr_image_38,
-            'qr_image_39': self.ui.qr_image_39,
-            'qr_image_40': self.ui.qr_image_40,
-            'qr_image_41': self.ui.qr_image_41,
-            'qr_image_42': self.ui.qr_image_42,
-            'qr_image_43': self.ui.qr_image_43,
-            'qr_image_44': self.ui.qr_image_44,
-            'qr_image_45': self.ui.qr_image_45,
-            'qr_image_46': self.ui.qr_image_46,
-            'qr_image_47': self.ui.qr_image_47,
-            'qr_image_48': self.ui.qr_image_48,
-            'qr_image_49': self.ui.qr_image_49,
-            'qr_image_50': self.ui.qr_image_50,
-            'qr_image_51': self.ui.qr_image_51,
-            'qr_image_52': self.ui.qr_image_52
-        }
+        self.data_mutex = QMutex()
+       
+        self.start_const = 0
+        self.approval = False
+        self.emergency = False
+        self.engine_running = False
+        self.remote_control = False
+        self.i = 0
+
+        self.qr_widgets = {f'qr_image_{i}': getattr(self.ui, f'qr_image_{i}') for i in range(1, 53)}
 
         self.last_msg_time = None
         self.check_connection_timer = QTimer(self)
@@ -130,9 +78,10 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
         self.get_logger().info("ROS initialized.")
         self.connect_ros()
-        self.qr_received.connect(self.update_text_edit)
+        self.qr_received.connect(self.update_text_edit, Qt.ConnectionType.QueuedConnection)
+        self.update_gui_signal.connect(self.update_gui, Qt.ConnectionType.QueuedConnection)
 
-        # Connecting Functions 
+        # Connecting Functions
         self.ui.pushButton_2.clicked.connect(self.showExitDialog)
         self.ui.pushButton_exit_fullscreen.clicked.connect(self.setFullScreen)
         self.ui.routeInfoButton.clicked.connect(self.createRouteInfoDialog)
@@ -145,7 +94,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.ui.emergencyButton_2.clicked.connect(self.emergency_sit)
         self.ui.pushButton.clicked.connect(self.comboBox_status)
         self.ui.pushButtonTurtle.clicked.connect(self.inActiveController)
-        
+       
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_time)
 
@@ -153,8 +102,13 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.centralwidget.setObjectName("centralwidget")
         self.elapsed_time = 0
 
-
-    # //////////////////// THE FUNCTIONS I WROTE ////////////////////
+    def update_gui(self, widget_name, value):
+        if hasattr(self.ui, widget_name):
+            widget = getattr(self.ui, widget_name)
+            if isinstance(widget, QLineEdit):
+                widget.setText(value)
+            elif isinstance(widget, QLabel):
+                widget.setText(value)
 
     def inActiveController(self):
         if not self.remote_control:
@@ -184,7 +138,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.btn_left.clicked.connect(lambda: self.update_twist('a'))
             self.ui.btn_right.clicked.connect(lambda: self.update_twist('d'))
             self.ui.btn_brake.clicked.connect(lambda: self.update_twist(' '))
-            
+           
             self.time_timer = QTimer(self)
             self.time_timer.timeout.connect(self.update_twist)
             self.time_timer.timeout.connect(self.read_key)
@@ -209,17 +163,14 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
             self.time_timer.stop()
 
-
     def reset_qr_map(self):
-        for i in range(1, 53):
-            widget = getattr(self.ui, f'qr_image_{i}')
+        for widget in self.qr_widgets.values():
             widget.setVisible(False)
 
     def reset_info(self):
         self.timer.stop()
         self.elapsed_time = 0
         self.ui.lineEdit_time.setText("00:00:00")
-        self.ui.lineEdit_charge.setText("0")
         self.ui.lineEdit_current.setText("0")
         self.ui.lineEdit_load.setText("0")
         self.ui.lineEdit_temperature.setText("0")
@@ -257,30 +208,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.layout = QVBoxLayout()
 
         scenario_index = self.ui.comboBox_scen.currentIndex()
-        if scenario_index == 0:
-            image_path = current_dir + "/images/bostur1.jpg"
-            text = "TEKNOFEST 2024"
-        elif scenario_index == 1:
-            image_path = current_dir + "/images/bostur2.jpg"
-            text = "TEKNOFEST 2024"
-        elif scenario_index == 2:
-            image_path = current_dir + "/images/bostur3.jpg"
-            text = "TEKNOFEST 2024"
-        elif scenario_index == 3:
-            image_path = current_dir + "/images/bostur4.jpg"
-            text = "TEKNOFEST 2024"
-        elif scenario_index == 4:
-            image_path = current_dir + "/images/yuklutur1.jpg"
-            text = "TEKNOFEST 2024"
-        elif scenario_index == 5:
-            image_path = current_dir + "/images/yuklutur2.jpg"
-            text = "TEKNOFEST 2024"
-        elif scenario_index == 6:
-            image_path = current_dir + "/images/yuklutur3.jpg"
-            text = "TEKNOFEST 2024"
-        elif scenario_index == 7:
-            image_path = current_dir + "/images/yuklutur4.jpg"
-            text = "TEKNOFEST 2024"
+        image_path = current_dir + f"/images/{'yuklu' if scenario_index > 3 else 'bos'}tur{scenario_index % 4 + 1}.jpg"
+        text = "TEKNOFEST 2024"
 
         image_label = QLabel(self.dialog)
         pixmap = QPixmap(image_path)
@@ -297,7 +226,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.dialog.exec()
 
     def comboBox_status(self):
-        if self.emergency == False:
+        if not self.emergency:
             self.approval = True
             self.ui.comboBox_scen.setEnabled(False)
         else:
@@ -313,8 +242,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         if self.approval:
             if not self.timer.isActive():
                 self.ui.startButton.setText("Durdur")
-                self.ui.label_situation.setText("Çalışıyor")
-                self.ui.label_situation_2.setText("Çalışıyor")
+                self.update_gui_signal.emit("label_situation", "Çalışıyor")
+                self.update_gui_signal.emit("label_situation_2", "Çalışıyor")
                 self.engine_running = True
                 icon1 = QtGui.QIcon()
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-off.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
@@ -324,8 +253,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
                 self.reset_qr_map()
             else:
                 self.ui.startButton.setText("Devam Et")
-                self.ui.label_situation.setText("Duraklatıldı")
-                self.ui.label_situation_2.setText("Duraklatıldı")
+                self.update_gui_signal.emit("label_situation", "Duraklatıldı")
+                self.update_gui_signal.emit("label_situation_2", "Duraklatıldı")
                 self.engine_running = False
                 icon1 = QtGui.QIcon()
                 icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
@@ -338,8 +267,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         if self.approval:
             self.ui.finishButton.setVisible(False)
             self.ui.startButton.setText("Başlat")
-            self.ui.label_situation.setText("Beklemede")
-            self.ui.label_situation_2.setText("Beklemede")
+            self.update_gui_signal.emit("label_situation", "Beklemede")
+            self.update_gui_signal.emit("label_situation_2", "Beklemede")
             icon1 = QtGui.QIcon()
             icon1.addPixmap(QtGui.QPixmap(current_dir + "/images/power-on.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
             self.ui.startButton.setIcon(icon1)
@@ -369,8 +298,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
     def emergency_sit(self):
         if self.approval and self.engine_running:
             self.ui.startButton.setText("Acil Durum")
-            self.ui.label_situation.setText("Acil Durumda")
-            self.ui.label_situation_2.setText("Acil Durumda")
+            self.update_gui_signal.emit("label_situation", "Acil Durumda")
+            self.update_gui_signal.emit("label_situation_2", "Acil Durumda")
             self.ui.emergencyButton.setText("Acil Durum İptal")
             self.ui.emergencyButton_2.setText("Acil Durum İptal")
             icon1 = QtGui.QIcon()
@@ -389,32 +318,20 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             msgBox_emergency.setStandardButtons(QMessageBox.StandardButton.Ok)
             msgBox_emergency.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
             msgBox_emergency.exec()
-
-        elif self.approval == False and self.emergency == True:
+        elif not self.approval and self.emergency:
             self.ui.centralwidget.setStyleSheet("")
             self.ui.emergencyButton.setText("Acil Durdurma")
             self.ui.emergencyButton_2.setText("Acil Durdurma")
             self.ui.startButton.setText("Başlat")
-            self.ui.label_situation.setText("Beklemede")
-            self.ui.label_situation_2.setText("Beklemede")
+            self.update_gui_signal.emit("label_situation", "Beklemede")
+            self.update_gui_signal.emit("label_situation_2", "Beklemede")
             self.emergency = False
             self.ui.comboBox_scen.setEnabled(True)
             self.ui.finishButton.setVisible(False)
             self.reset_info()
-
-        elif self.approval == False and self.emergency == False:
-            self.emergency = False
-            self.engine_running = False
-            msgBox_emergency = QMessageBox(self.ui.centralwidget)
-            msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
-            msgBox_emergency.setText("Araç şu anda çalışmıyor.")
-            msgBox_emergency.setWindowTitle("Acil durdurma kapatıldı")
-            msgBox_emergency.setStandardButtons(QMessageBox.StandardButton.Ok)
-            msgBox_emergency.setStyleSheet("QMessageBox {background-color: #FF6666; color: white;} QPushButton {color: black;}")
-            msgBox_emergency.exec()
-
         else:
             self.emergency = False
+            self.engine_running = False
             msgBox_emergency = QMessageBox(self.ui.centralwidget)
             msgBox_emergency.setIcon(QMessageBox.Icon.Warning)
             msgBox_emergency.setText("Araç şu anda çalışmıyor.")
@@ -429,108 +346,67 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         minutes, seconds = divmod(remainder, 60)
         self.ui.lineEdit_time.setText(f"{hours:02}:{minutes:02}:{seconds:02}")
 
-    # ////////////////////////////////////////////////
-
-
-
-    # //////////////////// QRCODE AND ROS ////////////////////
-
     def connect_ros(self):
         self.start_scen = self.create_publisher(Int32, 'scene_gui', 10)
-        
         self.gui_start_publisher = self.create_publisher(Bool, 'gui_start', 10)
-
-        self.qr_subscriber = self.create_subscription(
-            String, 'qr_code', self.print_QR, 100)
-        
-        self.lift_status_sub = self.create_subscription(
-            Bool, 'lift_command', self.lift_status, 100)
-        
-        self.overload_sub = self.create_subscription(
-            Bool, 'overload_error', self.overload, 100)
-        
-        self.obstacle_subscriber = self.create_subscription(
-            Int32, 'obstacle', self.print_obstacle, 100)
-        
-        self.temperature_subscriber = self.create_subscription(
-            String, 'sicaklik_data', self.print_temperature, 100)
-        
-        self.current_subscriber = self.create_subscription(
-            String, 'acisal_hiz_data', self.print_current, 100)
-        
-        '''self.charge_subscriber = self.create_subscription(
-            String, 'charge_packs', self.print_charge, 100)'''
-        
-        '''self.load_subscriber = self.create_subscription(
-            String, 'agirlik_data', self.print_load, 100)'''
-        
-        '''self.velocity_subscriber = self.create_subscription(
-            String, 'lineer_hiz_data', self.print_velocity, 100)'''
-
+        self.qr_subscriber = self.create_subscription(String, 'qr_code', self.print_QR, 10)
+        self.lift_status_sub = self.create_subscription(Bool, 'lift_command', self.lift_status, 10)
+        self.overload_sub = self.create_subscription(Bool, 'overload_error', self.overload, 10)
+        self.obstacle_subscriber = self.create_subscription(Int32, 'obstacle', self.print_obstacle, 10)
+        self.temperature_subscriber = self.create_subscription(String, 'sicaklik_data', self.print_temperature, 10)
+        self.current_subscriber = self.create_subscription(String, 'acisal_hiz_data', self.print_current, 10)
+        self.velocity_subscriber = self.create_subscription(String, 'lineer_hiz_data', self.print_velocity, 10)
+        self.load_subscriber = self.create_subscription(String, 'agirlik_data', self.print_load, 10) # 
+    
     def print_QR(self, msg):
         self.qr_received.emit(msg.data)
 
     def update_text_edit(self, qr_data):
-        _translate = QtCore.QCoreApplication.translate
-        self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
+        self.data_mutex.lock()
+        try:
+            _translate = QtCore.QCoreApplication.translate
+            self.ui.plainQRCODE.setPlainText(_translate("rover_gui", qr_data))
 
-        self.reset_qr_map()
-        numeric_part = ''.join(filter(str.isdigit, qr_data))
-        widget_name = f"qr_image_{numeric_part}"
-        widget = self.qr_widgets.get(widget_name)
-        widget.setVisible(True)
+            self.reset_qr_map()
+            numeric_part = ''.join(filter(str.isdigit, qr_data))
+            widget_name = f"qr_image_{numeric_part}"
+            widget = self.qr_widgets.get(widget_name)
+            if widget:
+                widget.setVisible(True)
+        finally:
+            self.data_mutex.unlock()
 
     def print_temperature(self, msg):
-        if self.engine_running == True:
-            self.ui.lineEdit_temperature.setText(str(msg.data))
-        else:
-            pass
+        if self.engine_running:
+            self.update_gui_signal.emit("lineEdit_temperature", str(msg.data))
+
+    def print_load(self, msg):# 
+        if self.engine_running:
+            self.update_gui_signal.emit("lineEdit_load", str(msg.data))
 
     def print_obstacle(self, msg):
         if msg.data == 1:
-            self.ui.label_situation.setText("Engel Algılandı")
-            self.ui.label_situation_2.setText("Engel Algılandı")
+            self.update_gui_signal.emit("label_situation", "Engel Algılandı")
+            self.update_gui_signal.emit("label_situation_2", "Engel Algılandı")
         else:
             if self.engine_running:
-                self.ui.label_situation.setText("Çalışıyor")
-                self.ui.label_situation.setText("Çalışıyor")
+                self.update_gui_signal.emit("label_situation", "Çalışıyor")
+                self.update_gui_signal.emit("label_situation_2", "Çalışıyor")
             else:
-                self.ui.label_situation.setText("Beklemede")
-                self.ui.label_situation.setText("Beklemede")
+                self.update_gui_signal.emit("label_situation", "Beklemede")
+                self.update_gui_signal.emit("label_situation_2", "Beklemede")
+
+    def print_velocity(self, msg):
+        if self.engine_running == True:
+            self.update_gui_signal.emit("lineEdit_velocity", str(msg.data))
 
     def print_current(self, msg):
-        if self.engine_running == True:
-            self.ui.lineEdit_current.setText(str(msg.data))
-        else:
-            pass
-
-    '''def print_charge(self, msg):
-        if self.engine_running == True:
-            self.ui.lineEdit_charge.setText(str(msg.data))
-        else:
-            pass'''
-
-    '''def print_load(self, msg):
-        if self.engine_running == True:
-            self.ui.lineEdit_load.setText(str(msg.data))
-        else:
-            pass'''
-
-    '''def print_velocity(self, msg):
-        if self.engine_running == True:
-            self.ui.lineEdit_velocity.setText(str(msg.data))
-        else:
-            pass'''
-    
-    def lift_status(self, msg):
-        if msg.data == True:
-            self.ui.label_load_response.setText("Yüklü")
-        else:
-            self.ui.label_load_response.setText("Yüklü Değil")
+        if self.engine_running:
+            self.update_gui_signal.emit("lineEdit_current", str(msg.data))
 
     def overload(self, msg):
-        if msg.data == True:
-            self.ui.label_load_response.setText("Aşırı Yük")
+        if msg.data:
+            self.update_gui_signal.emit("label_load_response", "Aşırı Yük")
             pixmap = QtGui.QPixmap(current_dir + "/images/boxes_red.png")
             self.ui.label_load.setPixmap(pixmap)
         else:
@@ -538,39 +414,39 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.label_load.setPixmap(pixmap)
             pass
 
+    def lift_status(self, msg):
+        if msg.data and self.ui.label_load_response.text() != "Aşırı Yük":
+            self.update_gui_signal.emit("label_load_response", "Yüklü")
+        elif not msg.data:
+            self.update_gui_signal.emit("label_load_response", "Yüklü Değil")
+
     def publish_scenario(self):
-        if self.engine_running == False and self.approval == False:
+        if not self.engine_running and not self.approval:
             msg = Int32()
             msg.data = int(self.ui.comboBox_scen.currentIndex()) + 1
             self.start_scen.publish(msg)
-    
+
     def publish_engine_status_startbutton(self):
         msg = Bool()
-        if self.approval == True and self.engine_running == False and self.emergency == False:
+        if self.approval and not self.engine_running and not self.emergency:
             msg.data = True
             self.gui_start_publisher.publish(msg)
-        elif self.approval == True and self.engine_running == True and self.emergency == False:
+        elif self.approval and self.engine_running and not self.emergency:
             msg.data = False
             self.gui_start_publisher.publish(msg)
-        else: 
-            pass
 
     def publish_engine_status_finishbutton(self):
-        msg = Bool()
-        if self.approval == True and self.engine_running == True and self.emergency == False:
+        if self.approval and self.engine_running and not self.emergency:
+            msg = Bool()
             msg.data = False
             self.gui_start_publisher.publish(msg)
-        else:
-            pass
 
     def publish_engine_status_emergencybutton(self):
-        msg = Bool()
-        if self.approval == False and self.engine_running == False and self.emergency == True:
+        if not self.approval and not self.engine_running and self.emergency:
+            msg = Bool()
             msg.data = False
             self.gui_start_publisher.publish(msg)
-        else:
-            pass
-    
+
     def check_vehicle(self, msg):
         self.last_msg_time = self.get_clock().now()
 
@@ -586,22 +462,13 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.update_connection_status(False)
 
     def update_connection_status(self, is_connected):
-        if is_connected:
-            pixmap = QtGui.QPixmap(current_dir + "/images/rss2.png")
-            text = "Bağlı"
-        else:
-            pixmap = QtGui.QPixmap(current_dir + "/images/rss.png")
-            text = "Bağlı Değil"
+        pixmap = QtGui.QPixmap(current_dir + ("/images/rss2.png" if is_connected else "/images/rss.png"))
+        text = "Bağlı" if is_connected else "Bağlı Değil"
 
         self.ui.label_connection.setPixmap(pixmap)
         self.ui.label_connection_3.setPixmap(pixmap)
-        self.ui.label_connection_situation.setText(text)
-        self.ui.label_connection_situation_2.setText(text)
-
-
-    # ////////////////////////////////////////////////
-
-    # //////////////////// TURTLE ////////////////////
+        self.update_gui_signal.emit("label_connection_situation", text)
+        self.update_gui_signal.emit("label_connection_situation_2", text)
 
     def getKey(self):
         tty.setraw(sys.stdin.fileno())
@@ -664,11 +531,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         QTimer.singleShot(2000, self.reset_button_colors)
 
     def reset_button_colors(self):
-        self.ui.btn_forward.setStyleSheet("")
-        self.ui.btn_backward.setStyleSheet("")
-        self.ui.btn_left.setStyleSheet("")
-        self.ui.btn_right.setStyleSheet("")
-        self.ui.btn_brake.setStyleSheet("")
+        for btn in [self.ui.btn_forward, self.ui.btn_backward, self.ui.btn_left, self.ui.btn_right, self.ui.btn_brake]:
+            btn.setStyleSheet("")
 
     def update_twist(self, key=None):
         try:
@@ -691,7 +555,6 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
                     self.target_angular_vel = 0.0
                     self.control_angular_vel = 0.0
 
-            # Hızı sürekli güncel tut
             self.control_linear_vel = self.makeSimpleProfile(self.control_linear_vel, self.target_linear_vel, (LIN_VEL_STEP_SIZE / 2.0))
             self.control_angular_vel = self.makeSimpleProfile(self.control_angular_vel, self.target_angular_vel, (ANG_VEL_STEP_SIZE / 2.0))
 
@@ -707,24 +570,23 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         except Exception as ex:
             print("Hata: ", str(ex))
 
-    
-    # ////////////////////////////////////////////////
-
 def main():
     rclpy.init(args=None)
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()
-    print(current_dir)
 
     def run_ros():
-        rclpy.spin(win)
+        while rclpy.ok():
+            rclpy.spin_once(win, timeout_sec=0.1)
 
-    thread = threading.Thread(target=run_ros)
-    thread.start()
-    app.exec()
+    ros_thread = threading.Thread(target=run_ros, daemon=True)
+    ros_thread.start()
+
+    exit_code = app.exec()
     rclpy.shutdown()
-    thread.join()
+    ros_thread.join(timeout=1.0)
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
     main()
