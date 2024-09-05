@@ -64,6 +64,7 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.engine_running = False
         self.remote_control = False
         self.i = 0
+        self.is_overloaded = False
 
         self.qr_widgets = {f'qr_image_{i}': getattr(self.ui, f'qr_image_{i}') for i in range(1, 53)}
 
@@ -350,8 +351,8 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
         self.start_scen = self.create_publisher(Int32, 'scene_gui', 10)
         self.gui_start_publisher = self.create_publisher(Bool, 'gui_start', 10)
         self.qr_subscriber = self.create_subscription(String, 'qr_code', self.print_QR, 10)
-        self.lift_status_sub = self.create_subscription(Bool, 'lift_command', self.lift_status, 10)
         self.overload_sub = self.create_subscription(Bool, 'overload_error', self.overload, 10)
+        self.lift_status_sub = self.create_subscription(Bool, 'lift_command', self.lift_status, 10)
         self.obstacle_subscriber = self.create_subscription(Int32, 'obstacle', self.print_obstacle, 10)
         self.temperature_subscriber = self.create_subscription(String, 'sicaklik_data', self.print_temperature, 10)
         self.current_subscriber = self.create_subscription(String, 'acisal_hiz_data', self.print_current, 10)
@@ -406,18 +407,22 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
 
     def overload(self, msg):
         if msg.data:
+            self.is_overloaded = True
             self.update_gui_signal.emit("label_load_response", "Aşırı Yük")
             pixmap = QtGui.QPixmap(current_dir + "/images/boxes_red.png")
             self.ui.label_load.setPixmap(pixmap)
         else:
+            self.is_overloaded = False
             pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
             self.ui.label_load.setPixmap(pixmap)
-            pass
 
     def lift_status(self, msg):
-        if msg.data and self.ui.label_load_response.text() != "Aşırı Yük":
+        if self.is_overloaded:
+            return  # Aşırı yük durumu varken hiçbir şey yapma
+
+        if msg.data:
             self.update_gui_signal.emit("label_load_response", "Yüklü")
-        elif not msg.data:
+        else:
             self.update_gui_signal.emit("label_load_response", "Yüklü Değil")
 
     def publish_scenario(self):
