@@ -413,12 +413,13 @@ class MainWindow(QMainWindow, Ui_rover_gui, Node):
             self.ui.label_load.setPixmap(pixmap)
         else:
             self.is_overloaded = False
+            self.update_gui_signal.emit("label_load_response", "Yüklü")
             pixmap = QtGui.QPixmap(current_dir + "/images/boxes.png")
             self.ui.label_load.setPixmap(pixmap)
 
     def lift_status(self, msg):
         if self.is_overloaded:
-            return  # Aşırı yük durumu varken hiçbir şey yapma
+            return
 
         if msg.data:
             self.update_gui_signal.emit("label_load_response", "Yüklü")
