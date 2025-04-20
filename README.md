@@ -28,13 +28,14 @@ Emergency mode:
 ![Emergency](./readme_images/3.png)
 
 Startup panel:  
-![Startup](./readme_images/3.png)
+![Startup](./readme_images/4.png)
 
 Route Information:  
-![Startup](./readme_images/5.png)
+![Route Information](./readme_images/5.png)
 
-Vehicle Values:
-![Startup](./readme_images/6.png)
+Vehicle Values:  
+![Vehicle Values](./readme_images/6.png)
+
 
 ## Installation
 
@@ -87,4 +88,3 @@ Make sure the required ROS 2 nodes are also running.
 ## License
 
 This project was developed for the TEKNOFEST 2024 Industry Digital Technologies Advanced Category. While it is open-source for educational and personal use, it must not be used in competitions or similar events without permission.
-```
