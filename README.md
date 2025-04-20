@@ -1,88 +1,90 @@
-# KOU Rover User Interface System / KOU Rover Kullanıcı Arayüz Sistemi
+# KOU Rover User Interface System
 
-Bu proje, KOU Rover takımı için geliştirilmiş görsel arayüz tabanlı bir kontrol panelidir. Arayüz, ROS2 altyapısı ile entegre şekilde çalışır ve robotun görev süreci boyunca durumu, yönlendirme bilgisi ve çeşitli sensör verilerini kullanıcıya sunar. Sistem ayrıca QR kod okuma, yük algılama ve acil durum yönetimi gibi gelişmiş özelliklere de sahiptir.
+This project is a visual interface-based control panel developed for the KOU Rover team. Designed to control the AGV (Automated Guided Vehicle) built by KOU Rover, it was developed following the team's first-place achievement in the TEKNOFEST 2024 Industry Digital Technologies Advanced Category competition. The interface works in full integration with the ROS 2 framework and provides real-time monitoring of the robot's status, navigation, and various sensor data throughout its operation. The system also includes advanced features such as QR code reading, load detection, and emergency handling.
 
-## 🚀 Özellikler
+## Features
 
-- **ROS 2 Entegrasyonu:** `/diff_cont/odom`, `scene_gui`, `gui_start`, `qr_code`, `agirlik_data` gibi ROS topic’leri üzerinden haberleşme.
-- **Tam Otomasyon Senaryoları:** 6 farklı senaryo üzerinden görev başlatma ve takip.
-- **Gerçek Zamanlı Görselleştirme:**
-  - QR kod haritası güncellenmesi
-  - Lidar haritalama görüntüsü (SLAM benzeri yapı)
-- **Uzaktan Kontrol (Turtle):** WASD tuşları ya da butonlar ile yönlendirme.
-- **Acil Durum Yönetimi:** Arayüz üzerinden acil durdurma ve iptal sistemi.
-- **Görev Takibi:** Görev süresi, sıcaklık, hız, yük ve batarya seviyesi gibi değerlerin canlı takibi.
+- **ROS 2 Integration:** Communication via topics like `/diff_cont/odom`, `scene_gui`, `gui_start`, `qr_code`, `agirlik_data`.
+- **Full Automation Scenarios:** Execute and track tasks through 6 different selectable scenarios.
+- **Real-Time Visualization:**
+  - Live-updating QR code map
+  - Lidar mapping image
+- **Remote Control (Turtle Mode):** Control via WASD keys or on-screen buttons.
+- **Emergency Handling:** Immediate stop and recovery through the UI.
+- **Task Monitoring:** Live tracking of mission time, temperature, speed, load, and battery level.
 
-## 📷 Arayüz Görselleri
+## Interface Screenshots
 
-Ana ekran:
-![Ana Panel](./images/sample_ui_1.png)
+Main screen:  
+![Main Panel](./readme_images/2.png)
 
-Yönlendirme ekranı:
-![Kontrolcü Paneli](./images/sample_ui_2.png)
+Navigation and control screen:  
+![QRCODE Map & Controller Panel](./readme_images/1.png)
 
-QR kod haritası:
-![QR Harita](./images/sample_ui_3.png)
+QR code map:  
+![QR Map](./readme_images/7.png)
 
-## 🛠️ Kurulum
+Emergency mode:  
+![Emergency](./readme_images/3.png)
 
-### Gereksinimler
+Startup panel:  
+![Startup](./readme_images/3.png)
+
+Route Information:  
+![Startup](./readme_images/5.png)
+
+Vehicle Values:
+![Startup](./readme_images/6.png)
+
+## Installation
+
+### Requirements
 
 - Ubuntu 20.04+
 - Python 3.8+
-- ROS 2 (Foxy ya da Humble önerilir)
+- ROS 2 (Recommended: Humble)
 - `PyQt6`
 - `fontconfig`
 
-### Yükleme
+### Setup
 
 ```bash
 sudo apt-get install python3-pyqt6 fontconfig
 sudo fc-cache -f -v
 ```
 
-Ardından proje klasöründe gerekli Python bağımlılıklarını yükleyin (örneğin):
+Then install the required Python dependencies inside the project directory:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-> **QR Kod Okuyucu için:**  
-> `device = evdev.InputDevice("/dev/input/event24")` satırında uygun `event` ID'si girilmeli ve gerekli izinler (`chmod`, `udev` kuralı) verilmelidir.
+> **For QR Code Scanner:**  
+> Replace `device = evdev.InputDevice("/dev/input/event24")` with the appropriate `event` ID for your system and ensure correct permissions are set (`chmod`, `udev` rules, etc.).
 
-## ▶️ Çalıştırma
+## Running the Interface
 
 ```bash
 python3 main_rovergui_2_0.py
 ```
 
-Ayrıca ROS 2 düğümlerinizin çalışıyor olması gerekmektedir.
+Make sure the required ROS 2 nodes are also running.
 
-## 📂 Klasör Yapısı
+## Folder Structure
 
-- `main_rovergui_2_0.py`: Ana GUI çalıştırıcısı
-- `ros2_nodes/`: ROS publisher/subscriber düğümleri
-- `images/`: Arayüz ikonları ve QR kod harita görselleri
-- `web_map.py`: Haritalama modülü
-- `guiros.py`: Alternatif arayüz (test amaçlı)
-- `old_versions/`: Önceki sürümler
+- `main_rovergui_2_0.py`: Main GUI launcher
+- `ros2_nodes/`: ROS publisher/subscriber nodes
+- `images/`: Interface icons and QR map visuals
+- `web_map.py`: Mapping module
+- `guiros.py`: Alternative UI (test version)
+- `old_versions/`: Archived versions
 
-## 👨‍💻 Geliştirici Notları
+## Developer Notes
 
-- `rovergui_2_0.py` dosyası içinde QR kod eşleşmeleri, buton işlevleri, ROS publisher'lar ve bağlantı kontrol mekanizması tanımlıdır.
-- PyQt sinyalleri thread-safe çalışacak şekilde `pyqtSignal(..., Qt.ConnectionType.QueuedConnection)` şeklinde bağlanmıştır.
+- `rovergui_2_0.py` contains the logic for QR code updates, button actions, ROS publishers, and connection monitoring.
+- PyQt signals are connected using `pyqtSignal(..., Qt.ConnectionType.QueuedConnection)` to ensure thread-safe UI updates.
 
-## ✨ Ekran Renkleri
+## License
 
-- Yeşil: Bağlantı aktif, görevde
-- Kırmızı: Acil durum aktif
-- Gri: Bekleme modu
-
-## 📜 Lisans
-
-Bu proje özel bir yarışma için geliştirilmiştir. Açık kaynak değildir.
+This project was developed for the TEKNOFEST 2024 Industry Digital Technologies Advanced Category. While it is open-source for educational and personal use, it must not be used in competitions or similar events without permission.
 ```
-
----
-
-Görsellerin klasörde `images/` altında `sample_ui_1.png`, `sample_ui_2.png`, `sample_ui_3.png` gibi isimlerle yer aldığını varsaydım. İstersen görsel adlarını seninkilerle güncellerim. Dilersen `.md` dosyasını direkt verebilirim.
