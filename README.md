@@ -1,7 +1,5 @@
 # KOU Rover User Interface System / KOU Rover Kullanıcı Arayüz Sistemi
-
 ---
-
 Bu proje, KOU Rover takımı için geliştirilmiş görsel arayüz tabanlı bir kontrol panelidir. Arayüz, ROS2 altyapısı ile entegre şekilde çalışır ve robotun görev süreci boyunca durumu, yönlendirme bilgisi ve çeşitli sensör verilerini kullanıcıya sunar. Sistem ayrıca QR kod okuma, yük algılama ve acil durum yönetimi gibi gelişmiş özelliklere de sahiptir.
 
 ## 🚀 Özellikler
